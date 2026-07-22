@@ -1,9 +1,28 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+snippets = [
+  {
+    title: "Rails routes",
+    description: "Show all available Rails routes.",
+    language: "bash",
+    code: "bin/rails routes",
+    tags: "rails, routes, debug"
+  },
+  {
+    title: "Start Rails server",
+    description: "Run the Rails API on port 3000.",
+    language: "bash",
+    code: "bin/rails server -b 127.0.0.1 -p 3000",
+    tags: "rails, server, api"
+  },
+  {
+    title: "React fetch example",
+    description: "Basic fetch call to an API endpoint.",
+    language: "javascript",
+    code: "fetch('http://127.0.0.1:3000/api/v1/snippets').then(response => response.json())",
+    tags: "react, fetch, api"
+  }
+]
+
+snippets.each do |attributes|
+  snippet = Snippet.find_or_initialize_by(title: attributes[:title])
+  snippet.update!(attributes)
+end
