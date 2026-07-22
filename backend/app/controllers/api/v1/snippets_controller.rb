@@ -22,7 +22,7 @@ class Api::V1::SnippetsController < ApplicationController
 
   def update
     if @snippet.update(snippet_params)
-      render json: serialize_snippet(snippet)
+      render json: serialize_snippet(@snippet)
     else
       render json: { errors: @snippet.errors.full_messages }, status: :unprocessable_entity
     end
