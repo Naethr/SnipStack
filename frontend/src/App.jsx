@@ -191,9 +191,12 @@ function App() {
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       setApiErrors([]);
-      document
-        .querySelector('[aria-invalid="true"]')
-        ?.focus({ preventScroll: false });
+      const firstInvalidField = Object.keys(validationErrors)[0];
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`snippet-${firstInvalidField}`)
+          ?.focus({ preventScroll: false });
+      });
       return;
     }
 

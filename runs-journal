@@ -3,38 +3,24 @@
 ## Convention
 
 Une entrée est ajoutée à chaque passe, même si elle échoue ou reste bloquée.
-
-Chaque entrée doit contenir :
-
-- date, branche et commit de départ ;
-- objectif et périmètre ;
-- fichiers modifiés ;
-- actions et commandes réellement exécutées ;
-- résultat observé ;
-- problèmes rencontrés et cause prouvée ou hypothèse clairement signalée ;
-- correction ou décision ;
-- tests et vérifications avec leur résultat ;
-- risques ou travaux restants ;
-- statut : `terminé`, `partiel` ou `bloqué`.
-
-Ne jamais inscrire un test comme réussi s'il n'a pas été exécuté.
+Les statuts possibles sont `terminé`, `partiel` et `bloqué`. Aucun résultat
+n'est déclaré réussi sans exécution effective.
 
 ---
 
 ## Passe documentaire initiale — Analyse et planification
 
-**Date** : 23 juillet 2026  
-**Branche** : `feature/desktop`  
-**Base** : `develop` au commit `adcaa54`  
+**Date** : 23 juillet 2026
+**Branche** : `feature/desktop`
+**Base** : `develop` au commit `adcaa54`
 **Statut** : terminé
 
-### Objectif
+### Objectif et périmètre
 
 - Créer la branche Desktop depuis `develop`.
-- Analyser l'ancienne conversion Tauri dans `/home/allen/mes_projets/SnippetVault_desktop_app`.
-- Analyser le frontend, ses dépendances, son accès au backend et ses points CSS sensibles.
-- Définir un plan global et l'ordre des futures passes.
-- Ne produire aucun code applicatif et n'exécuter aucun run de build, test, installation ou lancement.
+- Analyser `/home/allen/mes_projets/SnippetVault_desktop_app`.
+- Analyser SnipStack, ses dépendances, son frontend et son backend.
+- Planifier l'ajout de Tauri sans écrire de code applicatif ni lancer de run.
 
 ### Fichiers créés
 
@@ -42,83 +28,621 @@ Ne jamais inscrire un test comme réussi s'il n'a pas été exécuté.
 - `runs-workflow.md`
 - `runs-journal`
 
-### Actions réalisées
+### Actions, résultats et décisions
 
-- Vérification d'un worktree propre sur `develop`.
-- Création de `feature/desktop` depuis `develop`.
-- Lecture des instructions, de la documentation, de la configuration Tauri, du code Rust, des capabilities, du client de persistance et de l'historique pertinent de l'ancien dépôt.
-- Inventaire du frontend et du backend SnipStack.
-- Lecture du client API, des composants, du CSS, de la configuration CORS, du contrôleur Rails, du modèle et des routes.
-- Consultation de la documentation officielle Tauri 2 sur Vite, les prérequis, la CSP, les capabilities, les sidecars, l'origine Windows et l'installeur Windows.
+- L'ancien projet Tauri 2 a été inspecté, y compris sa configuration, son code
+  Rust, ses capabilities et son stockage.
+- Son remplacement de Rails par Tauri Store a été identifié comme incompatible
+  avec SnipStack.
+- SnipStack utilise Rails/PostgreSQL comme source de vérité et un client
+  frontend centralisé.
+- Le frontend est responsive jusqu'à `320 px` et possède déjà une règle
+  reduced-motion.
+- Outfit était chargée depuis Google Fonts.
+- Les risques CSS à mesurer sont le blur, le calque fixe masqué, les grandes
+  ombres, les animations et le rendu intégral des cartes.
+- Les futurs besoins web, login, offline et synchronisation ont été inscrits
+  comme runs 13 à 17, hors implémentation initiale.
 
-### Faits établis
+### Vérifications
 
-- L'ancien projet utilise Tauri 2 avec React/Vite, une CSP restrictive et un bundle NSIS.
-- Cette ancienne migration a remplacé Rails par Tauri Store ; cette partie est incompatible avec le périmètre SnipStack.
-- SnipStack utilise Rails/PostgreSQL comme source de vérité et `fetch` vers `/api/v1`.
-- Le CORS actuel n'autorise par défaut que les origines Vite locales.
-- L'interface est responsive jusqu'à `320 px` et possède déjà une règle reduced-motion.
-- Outfit est chargée depuis Google Fonts.
-- Les effets CSS les plus susceptibles de devoir être mesurés sont le blur, le calque fixe masqué, les grandes ombres et les animations d'attente.
-- Le précédent dépôt n'a pas validé son installeur Windows natif.
-
-### Problème structurant relevé
-
-La demande « application installable » ne précise pas où Rails et PostgreSQL doivent s'exécuter. Un shell Tauri n'embarque pas automatiquement ce backend.
-
-### Décision de planification
-
-- Proposer en priorité une app Tauri qui conserve une API Rails séparée.
-- Interdire toute substitution par Tauri Store.
-- Placer une décision d'architecture obligatoire au run 0.
-- Traiter l'embarquement Rails/PostgreSQL comme une étude sidecar distincte s'il devient obligatoire.
-- Reporter toute optimisation CSS après une baseline et un profilage dans la vraie WebView.
-
-### Vérifications exécutées
-
-- `git status --short --branch` avant création de branche : worktree propre sur `develop`.
-- Vérification de la branche après création : `feature/desktop`.
-- Inspections de fichiers et recherches textuelles en lecture seule.
-
-### Vérifications non exécutées
-
-- Aucun `npm install`.
-- Aucun `bundle install`.
-- Aucun lint.
-- Aucun test frontend ou backend.
-- Aucun build Vite, Rails, Rust ou Tauri.
-- Aucun serveur Vite ou Rails.
-- Aucun lancement Tauri.
-- Aucun test visuel ou de performance.
-
-### Reste à faire
-
-- Obtenir les décisions du run 0.
-- Commencer le run 1 uniquement après validation de l'architecture.
+- Branche créée : `feature/desktop`.
+- Dépôt et fichiers inspectés en lecture seule.
+- Aucun install, build, test ou serveur lancé pendant cette passe.
 
 ---
 
-## Modèle pour la prochaine passe
+## Run 0 — Contrat Desktop/backend sous WSL/WSLg
 
-### Run N — Titre
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
 
-**Date** :  
-**Branche** :  
-**Commit de départ** :  
-**Statut** :
+### Objectif
 
-#### Objectif et périmètre
+Trancher l'architecture avant l'implémentation.
 
-#### Fichiers modifiés
+### Fichiers
 
-#### Actions et commandes exécutées
+- `docs/desktop-architecture.md`
 
-#### Résultats observés
+### Décisions
 
-#### Problèmes et diagnostic
+- Tauri 2 cible uniquement Linux sous WSL/WSLg.
+- React/Vite est embarqué sans remplacement de l'application web.
+- Rails reste séparé sur `http://127.0.0.1:3000/api/v1`.
+- PostgreSQL reste séparé et demeure la source de vérité.
+- Aucun login, stockage local ou mécanisme de synchronisation n'est ajouté aux
+  runs 0 à 12.
+- Identité : `SnipStack` `0.1.0`, `com.allen.snipstack`.
+- Fenêtre : `1280×800`, minimum `720×600`, redimensionnable.
 
-#### Corrections ou décisions
+### Vérifications et reste
 
-#### Tests et vérifications
+- Branche et cohérence documentaire vérifiées.
+- Le format de bundle Linux restait à confirmer aux runs 10 et 11.
 
-#### Risques et travaux restants
+---
+
+## Run 1 — Baseline web et matrice de régression
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `docs/desktop-baseline.md`
+
+### Actions exécutées
+
+- Relevé des versions Node, npm, Ruby, Bundler, Rails, PostgreSQL, Rust et
+  Cargo.
+- `npm run lint`
+- `npm run build`
+- `bundle exec rails test`
+- `bundle exec rubocop`
+- smoke API index/create/update/validation/delete/not-found ;
+- contrôle WSL2, Wayland, DISPLAY et WSLg ;
+- tentative de pilotage d'un navigateur Chrome.
+
+### Résultats
+
+- Lint frontend : réussi.
+- Build Vite initial : `240 ms`, JS `288.02 kB`, CSS `21.39 kB`.
+- Smoke API/CORS Vite : réussi.
+- Rails lançait initialement zéro test.
+- RuboCop signalait cinq offenses préexistantes.
+- WSLg était disponible.
+
+### Problème puis résolution
+
+Le premier runtime Chrome n'a découvert aucun navigateur pilotable. Lors de
+l'audit final, Google Chrome Linux est devenu disponible dans WSL et a permis
+de compléter la baseline sans utiliser Windows.
+
+### Preuves complémentaires
+
+- Captures web : `1440×900`, `1120×800`, `760×800`, `720×600`.
+- Capture web responsive supplémentaire : `420×900`.
+- Console : aucun warning, erreur ou exception ; uniquement les messages
+  Vite/React de développement.
+- API navigateur : `GET /api/v1/snippets` en `200`.
+- Aucun overflow horizontal à `1440×900`.
+- Arbre d'accessibilité contrôlé ; `Tab` atteint le lien d'évitement et `/`
+  place le focus visible sur la recherche.
+- HMR réellement observé après modification de timestamp de `src/App.jsx`.
+- Baseline `develop` récupérée dans un worktree temporaire pour la comparaison
+  typographique du run 6.
+
+---
+
+## Run 2 — Scaffold Tauri minimal
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/src-tauri/Cargo.toml`
+- `frontend/src-tauri/Cargo.lock`
+- `frontend/src-tauri/build.rs`
+- `frontend/src-tauri/src/main.rs`
+- `frontend/src-tauri/src/lib.rs`
+- `frontend/src-tauri/tauri.conf.json`
+- `frontend/src-tauri/capabilities/default.json`
+- `frontend/src-tauri/icons/icon.png`
+- `frontend/src-tauri/.gitignore`
+
+### Actions et résultats
+
+- Tauri CLI `2.11.4` et crate Tauri `2.11.5` ajoutés.
+- Scaffold Rust minimal créé sous le frontend.
+- Capability initiale limitée à `core:default`.
+- `cargo fmt --check` et `cargo check` : réussis.
+- `npm run lint`, `npm run build`, lancement web et smoke Tauri exécutés lors
+  des validations cumulées.
+- La comparaison visuelle web/Tauri est conservée dans
+  `docs/desktop-screenshots/`.
+- Aucun Store, Shell, sidecar ou backend alternatif ajouté.
+
+---
+
+## Run 3 — Intégration Vite/Tauri
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/vite.config.js`
+- `frontend/src-tauri/tauri.conf.json`
+
+### Actions et résultats
+
+- Scripts `dev:desktop`, `build:desktop` et `tauri` ajoutés.
+- Vite configuré pour `127.0.0.1:5173`, port strict, HMR Tauri et exclusion de
+  `src-tauri` du watcher.
+- Build ciblé Safari 13, minification release et sourcemaps debug configurés.
+- Le test du port strict a correctement échoué lorsqu'un serveur occupait
+  `5173`.
+- `tauri dev` a lancé le processus sous WSLg.
+- Le HMR a été observé dans Chrome Linux :
+  `[vite] hot updated: /src/App.jsx`.
+
+### Problème et décision
+
+WSLg a produit des erreurs EGL/DMABUF. Les variables
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` et `LIBGL_ALWAYS_SOFTWARE=1` ont stabilisé
+le rendu logiciel ; elles sont documentées comme contournement WSLg.
+
+---
+
+## Run 4 — API, CORS et CSP
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/.env.example`
+- `frontend/.env.desktop` local, ignoré par Git
+- `frontend/src/api/snippetsApi.js`
+- `frontend/src-tauri/Cargo.toml`
+- `frontend/src-tauri/src/lib.rs`
+- `frontend/src-tauri/capabilities/default.json`
+- `frontend/src-tauri/tauri.conf.json`
+- `backend/config/initializers/cors.rb`
+- `backend/test/integration/snippets_api_test.rb`
+- `docs/desktop-architecture.md`
+
+### Actions et problème reproduit
+
+- URL Desktop fixée à `http://127.0.0.1:3000/api/v1`.
+- Origine WebView observée : `tauri://localhost`.
+- `fetch` Web direct vers l'API locale refusé dans WebKitGTK avant émission de
+  la requête ; l'interface restait `offline`.
+- Un premier diagnostic avec CSP désactivée dans le profil de test a isolé le
+  problème, puis cette désactivation a été retirée.
+
+### Correction
+
+- Ajout du plugin HTTP officiel Tauri.
+- Le client centralisé choisit le plugin uniquement lorsque `isTauri()` est
+  vrai ; le navigateur conserve `globalThis.fetch`.
+- Capability HTTP limitée à
+  `http://127.0.0.1:3000/api/v1/**`.
+- CSP finale limitée aux ressources embarquées et à l'IPC.
+- CORS Rails limité aux origines Vite ; `tauri://localhost` retiré car le
+  transport natif n'en dépend pas.
+
+### Vérifications
+
+- Préflight et GET CORS Vite : autorisés.
+- `POST`, `PATCH` et `DELETE` avec origine Vite : autorisés et couverts par le
+  test d'intégration Rails.
+- Origines Tauri et tierces : non autorisées par le CORS navigateur.
+- CRUD réel depuis Tauri : réussi.
+- Erreurs `404`, `422`, `204` et réseau indisponible couvertes aux runs 8 et 11.
+
+---
+
+## Run 5 — Fenêtre et interactions Desktop
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/test/desktop/snipstack.spec.js`
+- `docs/desktop-screenshots/tauri-1440x900.png`
+- `docs/desktop-screenshots/tauri-1120x800.png`
+- `docs/desktop-screenshots/tauri-760x800.png`
+- `docs/desktop-screenshots/tauri-720x600.png`
+
+### Vérifications
+
+- Fenêtre initiale et minimum `720×600`.
+- Tentative `600×500` contrainte par la fenêtre au minimum `720×600`.
+- Maximisation et plein écran non forcé : interface toujours accessible.
+- Redimensionnements `1440×900`, `1120×800`, `760×800`, `720×600`.
+- Composer sticky, zones de scroll, recherche, raccourci `/`, indicateur de
+  focus et règle reduced-motion.
+- CRUD complet, filtre et presse-papiers Web.
+- Inspection visuelle des captures : rendu cohérent, sans débordement
+  horizontal observé.
+
+### Résultat
+
+Le smoke Tauri passe avec 2 tests en environ 2 à 3 secondes. Aucun plugin
+Clipboard n'est nécessaire.
+
+---
+
+## Run 6 — Polices locales
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/src/main.jsx`
+- `frontend/src/index.css`
+- `frontend/public/licenses/Outfit-OFL-1.1.txt`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+
+### Actions et résultats
+
+- Import Google Fonts supprimé.
+- Outfit 400, 500, 600 et 700 embarquée via `@fontsource/outfit`.
+- Licence OFL copiée avec les assets publics.
+- Le build contient uniquement les huit fichiers locaux WOFF/WOFF2 attendus.
+- Aucun domaine Google Fonts ou CDN dans la CSP.
+- Comparaison Chrome `develop`/locale : mêmes hauteurs, même premier titre,
+  même hauteur de document (`1699 px`), aucun changement de retour à la ligne.
+- Écart de largeur du H1 : `0.046875 px`.
+- Les captures Tauri après modification conservent la hiérarchie attendue.
+
+---
+
+## Run 7 — Profilage CSS et listes
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/test/desktop/performance.spec.js`
+- `docs/desktop-performance.md`
+
+### Méthode
+
+- Build Tauri release optimisé avec instrumentation WebDriver de test.
+- 1 000 snippets temporaires, plus 3 snippets préexistants.
+- Mesures dans WebKitGTK sous WSLg.
+
+### Résultats avant optimisation
+
+- 1 003 cartes rendues.
+- Profil scroll sur 24 frames, médiane de 3 passages : `1327 ms`.
+- Pire frame médiane : `61 ms`.
+- Désactiver blur et animations n'améliore pas la mesure.
+- Retirer les grandes ombres porte la pire frame médiane à `137 ms`.
+- Rendre la grille `body::before` non fixe réduit la médiane à `1103 ms`.
+
+### Correction, vérification et nettoyage
+
+- Le runtime Tauri ajoute `data-runtime="tauri"` à la racine.
+- Uniquement dans Tauri, la grille garde son rendu mais passe de `fixed` à
+  `absolute`; le navigateur conserve le CSS original.
+- Après correction : médiane `1114 ms` (`-16.1 %`) et pire frame médiane
+  `51 ms` (`-16.4 %`).
+- Filtrage final vers une carte : `65 ms`.
+- Captures Tauri régénérées et inspectées aux quatre tailles.
+- Les 1 000 fixtures ont été supprimées après chaque série ; état final :
+  `remaining=0`.
+
+---
+
+## Run 8 — Couverture automatisée
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/src/api/snippetsApi.test.js`
+- `frontend/src/App.test.jsx`
+- `frontend/src/test/setup.js`
+- `frontend/src/test/wdio-entry.js`
+- `frontend/wdio.conf.js`
+- `frontend/wdio.external.conf.js`
+- `frontend/test/desktop/*.spec.js`
+- `backend/test/models/snippet_test.rb`
+- `backend/test/integration/snippets_api_test.rb`
+- corrections de style Rails ciblées.
+
+### Couverture ajoutée
+
+- Client API : succès, create/update, panne réseau, `404`, `422`, `204` et
+  `AbortError`.
+- UI : chargement, filtre, raccourci, retry, validation/focus, create, edit,
+  copy et delete.
+- Rails : validations modèle, CRUD JSON et CORS.
+- Tauri : smoke embarqué, performance, AppImage et état offline.
+
+### Problèmes corrigés
+
+- Le focus du premier champ invalide survenait avant le rendu de
+  `aria-invalid`; le focus est maintenant planifié avec
+  `requestAnimationFrame`.
+- Vitest découvrait les specs WDIO ; sa portée est maintenant
+  `src/**/*.test.{js,jsx}`.
+- ESLint parcourait les assets Cargo générés ; `src-tauri/target` est ignoré.
+- `@wdio/tauri-service` attendait une version plus récente de
+  `@wdio/native-utils`; un override `2.5.0` a rétabli l'export attendu.
+
+### Résultats
+
+- Vitest : 2 fichiers, 11 tests, tous réussis.
+- Rails : 4 tests, 41 assertions, aucun échec.
+- RuboCop : 26 fichiers, aucune offense.
+- Smoke Tauri avec CSP active : 2 tests réussis.
+- `npm audit --omit=dev` : 0 vulnérabilité.
+
+---
+
+## Run 9 — Durcissement Tauri
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `frontend/src-tauri/capabilities/default.json`
+- `frontend/src-tauri/tauri.webdriver.conf.json`
+- `frontend/src-tauri/Cargo.toml`
+- `frontend/src-tauri/src/lib.rs`
+- `docs/desktop-security.md`
+
+### Vérifications
+
+- Une seule capability de production pour `main`.
+- Permission de production unique : HTTP limité à l'API locale.
+- `core:default` retiré après audit car inutilisé ; il reste seulement dans le
+  profil WebDriver.
+- Arbre Cargo normal : plugin HTTP uniquement.
+- Arbre avec `--features webdriver` : plugins WDIO de test présents.
+- Binaire release normal : aucun marqueur WDIO trouvé avec `strings`.
+- Aucun Shell, Store, Clipboard ou accès filesystem.
+- Aucun `dangerouslySetInnerHTML`, `innerHTML=`, `eval` ou `new Function`
+  trouvé dans le code applicatif.
+- Le code des snippets reste rendu comme texte.
+- CSP identique entre le profil de smoke et la production.
+- `style-src 'unsafe-inline'` retiré ; `base-uri`, `form-action` et
+  `frame-ancestors` ajoutés.
+- Features par défaut du plugin HTTP désactivées ; aucun `cookie_store`.
+- Un build de publication ne doit jamais utiliser `--features webdriver` ni
+  `--all-features`.
+
+---
+
+## Run 10 — Build et validation WSL/WSLg
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Commandes
+
+- `npm run lint`
+- `npm test`
+- `npm run build:desktop`
+- `bundle exec rails test`
+- `bundle exec rubocop`
+- `cargo fmt --check`
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo clippy --all-targets --features webdriver -- -D warnings`
+- `npm run tauri -- build --no-bundle`
+
+### Résultats
+
+- Tous les contrôles réussissent.
+- Build frontend Desktop : `221–232 ms`, JS `290.55 kB`,
+  CSS `22.66 kB` avant gzip.
+- Binaire : ELF PIE x86-64, 18 MiB, release optimisée.
+- Lancement réel sous WSLg : processus stable, environ 173 MiB RSS observés,
+  puis fermeture volontaire.
+- Aucun résultat Windows n'est revendiqué.
+
+---
+
+## Run 11 — Artefact Linux et cycle de vie
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `docs/desktop-release.md`
+- `frontend/test/desktop/artifact.spec.js`
+- `frontend/test/desktop/offline.spec.js`
+
+### Build
+
+`npm run tauri -- build` a produit :
+
+- `SnipStack_0.1.0_amd64.deb` — 5 705 120 octets,
+  SHA-256 `5a520274977f0293b67558754a70cf38a11f1750157ab85a9c11a2a63dc15bfd` ;
+- `SnipStack_0.1.0_amd64.AppImage` — 79 948 280 octets,
+  SHA-256 `78fc78673082e462c896e086a291ef2626705dff9fda9195e1a0b4318754c5f6`.
+
+`dpkg-deb --info` confirme le paquet `snip-stack` `0.1.0`, architecture
+`amd64`, dépendant de `libwebkit2gtk-4.1-0` et `libgtk-3-0`.
+
+### Cycle de vie AppImage
+
+- Premier lancement : connexion API et CRUD complet réussis.
+- Fermeture et second lancement : CRUD complet réussi à nouveau.
+- API arrêtée au lancement : statut offline, interface conservée, erreur
+  explicite et bouton `Try again` vérifiés.
+- Clic sur `Try again` sans API : nouvelle requête et état offline cohérent.
+- API relancée et serveur Rails restauré sur `127.0.0.1:3000`.
+
+### Problèmes et décisions
+
+- Le service WDIO externe ajoutait des timeouts de changement de fenêtre.
+  Le pilotage direct officiel `tauri-driver` + `WebKitWebDriver` a supprimé ce
+  problème.
+- Les variables proxy vides ont été retirées pour éviter une erreur de
+  résolution proxy WebKit.
+- Des warnings EGL/DRI3, GStreamer et quelques retries
+  `element not interactable` ont été observés ; les deux suites AppImage ont
+  néanmoins réussi.
+- Le paquet Debian a été inspecté mais pas installé afin d'éviter une mutation
+  système. L'AppImage est l'artefact de cycle de vie retenu.
+
+### Nettoyage
+
+Deux snippets AppImage laissés par des essais WebKitWebDriver interrompus ont
+été identifiés puis supprimés. Comptages finaux :
+`wdio=0`, `appimage=0`, `perf=0`.
+
+---
+
+## Run 12 — Documentation finale et décision de publication
+
+**Date** : 23 juillet 2026
+**Commit de départ** : `b754bd2`
+**Statut** : terminé
+
+### Fichiers
+
+- `README.md`
+- `brief.md`
+- `docs/desktop-architecture.md`
+- `docs/desktop-baseline.md`
+- `docs/desktop-performance.md`
+- `docs/desktop-security.md`
+- `docs/desktop-release.md`
+- `runs-journal`
+
+### Documentation livrée
+
+- Architecture web/Rails/Desktop et frontières futures.
+- Prérequis WSL/WSLg, commandes web, Tauri, tests et builds.
+- Configuration de l'API et scope de la capability HTTP.
+- Diagnostic offline et contournement graphique WSLg.
+- Séparation WebDriver test/production.
+- Chemins, tailles, hashes et limites des artefacts.
+- Baseline Chrome Linux et comparaison typographique `develop`/locale.
+- Profil CSS avant/après et optimisation Tauri conditionnelle.
+- Procédure complète du driver externe, y compris variables WSLg et proxy.
+
+### Décision
+
+La variante est exploitable et testée pour un usage local sous WSL/WSLg avec
+Rails/PostgreSQL séparés. Elle n'est pas prête pour une publication publique :
+authentification, API distante HTTPS, signature, stockage offline réel et
+synchronisation restent à traiter dans les runs futurs.
+
+### Incertitudes restantes
+
+- Baseline Chrome Linux obtenue lors de l'audit final ; profil exécuté en mode
+  développement, sans audit automatisé de contraste ni lecteur d'écran réel.
+- Installation du paquet Debian non testée.
+- Windows, macOS et Linux natif non testés.
+- Aucun audit de sécurité externe.
+- Aucun login, stockage offline ou synchronisation implémenté.
+
+---
+
+## Audit correctif de reprise — Runs 0 à 12
+
+**Date** : 23 juillet 2026
+**Branche** : `feature/desktop`
+**Base** : `b754bd2`
+**Statut** : terminé
+
+### Objectif
+
+Ne pas accepter les statuts historiques comme preuve suffisante : confronter
+chaque critère des runs 0 à 12 à l'état réel, corriger les écarts, puis
+rejouer les validations.
+
+### Écarts corrigés
+
+- Probe de performance réparé : `cssOverride` référençait une variable
+  inexistante ; ESLint l'a détecté pendant la reprise.
+- Assertion de focus Desktop stabilisée et vérification de visibilité rendue
+  explicite après la transition CSS.
+- Smoke Desktop renforcé : taille initiale, minimum, overflow horizontal et
+  accès par scroll aux contrôles essentiels.
+- Divergence du select blanc WebKitGTK corrigée avec `color-scheme: dark` ;
+  les captures Tauri ont été régénérées et inspectées.
+- CORS par défaut réduit à `http://127.0.0.1:5173`.
+- Préflight `OPTIONS` autorisé et refus d'origines non utilisées ajoutés aux
+  tests Rails.
+- Transport `tauriFetch` et requête `DELETE` `204` couverts directement dans
+  les tests du client API.
+- Smoke web réel ajouté sous Chrome Linux : responsive, overflow, filtre,
+  raccourci/focus, scroll, presse-papiers et CRUD.
+- HMR vérifié dans la WebView Tauri elle-même, et non plus seulement dans
+  Chrome.
+- Jeux de fixtures `3`, `100` et `1000` rendus reproductibles et nettoyés.
+- Le probe échoue désormais si l'optimisation de grille ne conserve pas au
+  moins 5 % de gain face à la grille originale.
+- Garde technique ajoutée contre un release avec `webdriver` ou
+  `--all-features`; seul le probe local peut fournir un override explicite.
+- Documentation complétée : paquets Ubuntu exacts, logs, diagnostic réseau,
+  HMR, garde release, métriques et rapport de validation.
+- Contradiction « baseline Chrome non obtenue » supprimée du journal.
+
+### Résultats rejoués
+
+- ESLint : réussi.
+- Vitest : 2 fichiers, 12 tests réussis.
+- Chrome Linux : 2 scénarios web réussis.
+- Rails : 4 tests, 47 assertions, aucun échec.
+- RuboCop : 26 fichiers, aucune offense.
+- Rustfmt et Clippy normal/test : réussis.
+- Tauri smoke : 2 scénarios actifs réussis.
+- Tauri dev HMR : 1 scénario réussi dans la WebView.
+- Port Vite strict : second lancement refusé sur `5173`.
+- Performance release : 1 003 cartes, grille optimisée `1121 ms` / `54 ms`,
+  grille originale `1351 ms` / `62 ms`, filtre `67 ms`.
+- Fixtures finales : `remaining=0`.
+- Garde release WebDriver : échec attendu sans override.
+- Builds Desktop, sans bundle et avec bundles : réussis.
+- AppImage final testé deux fois avec CRUD complet, puis offline avec retry.
+- API Rails restaurée après le test offline : `GET` en `200`.
+- Binaire et AppImage normaux : aucun marqueur WebDriver.
+
+### Artefacts finaux de la reprise
+
+- Debian : 5 705 080 octets,
+  SHA-256 `700c4cb73a46b9e4dca7831556d306b36697c43d6acc21785ea32f3d47165f8f`.
+- AppImage : 79 948 280 octets,
+  SHA-256 `49ddf511ad7b823534fbe7dc01ad87963adeec1826eeaade182aafdc7c8c901d`.
+
+### Limites maintenues
+
+- Le paquet Debian est construit et inspecté, mais pas installé.
+- Les retries `element not interactable` et warnings GStreamer du pilote
+  externe WSLg restent documentés.
+- Windows, macOS et Linux natif restent hors périmètre et non testés.
+- Les runs 13 à 17 (publication web, auth, offline réel et synchronisation)
+  ne sont pas implémentés.
+- Aucun commit, push ou pull request n'a été créé.

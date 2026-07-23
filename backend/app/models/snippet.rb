@@ -7,7 +7,7 @@ class Snippet < ApplicationRecord
   validates :code, presence: true, length: { maximum: 20_000 }
   validates :tags, length: { maximum: 300 }, allow_blank: true
 
-  scope :newest_first, -> { order(created_at: :desc, id: :desc)}
+  scope :newest_first, -> { order(created_at: :desc, id: :desc) }
 
   private
 

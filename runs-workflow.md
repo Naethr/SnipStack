@@ -135,8 +135,12 @@ Faire fonctionner le contrat Rails existant depuis la WebView sans élargir inut
 
 - Configurer `VITE_API_BASE_URL` pour le Desktop.
 - Relever l'origine réelle de la WebView sous WSL/WSLg.
-- Ajouter ces origines exactes à `FRONTEND_ORIGIN`.
-- Définir une CSP Tauri restrictive avec l'API exacte dans `connect-src`.
+- Conserver dans `FRONTEND_ORIGIN` uniquement les origines qui utilisent
+  réellement le CORS navigateur.
+- Si `fetch` Web fonctionne, définir une CSP Tauri restrictive avec l'API
+  exacte dans `connect-src`.
+- Si le plugin HTTP devient nécessaire après preuve, limiter sa capability à
+  l'API exacte et limiter `connect-src` à l'IPC Tauri.
 - Interdire les endpoints HTTP non chiffrés pour une API distante.
 - Conserver la gestion `ApiError` et le contrat JSON.
 - Ne basculer vers un plugin HTTP que si `fetch` est insuffisant et que le problème est démontré.
@@ -152,7 +156,7 @@ Faire fonctionner le contrat Rails existant depuis la WebView sans élargir inut
 **Critères de sortie**
 
 - CRUD complet dans Tauri.
-- CORS et CSP minimaux, documentés et vérifiés.
+- CORS, CSP et éventuelle capability HTTP minimaux, documentés et vérifiés.
 - Aucun stockage parallèle dans cette passe.
 
 ## Priorité P2 — Expérience Desktop et fidélité visuelle
@@ -259,6 +263,8 @@ Limiter la surface native avant distribution.
 - Vérifier la CSP finale.
 - Vérifier qu'aucun secret ni endpoint privé n'est embarqué dans le bundle frontend.
 - Vérifier que le code des snippets reste rendu comme texte et n'est jamais exécuté.
+- Désactiver les features natives non utilisées, notamment le cookie jar HTTP.
+- Interdire `--features webdriver` et `--all-features` dans un build de publication.
 
 **Critères de sortie**
 

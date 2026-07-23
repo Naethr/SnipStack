@@ -1,0 +1,22 @@
+[package]
+name = "snipstack-desktop"
+version = "0.1.0"
+description = "Desktop client for the SnipStack Rails API"
+authors = ["Allen"]
+edition = "2021"
+
+[lib]
+name = "snipstack_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+webdriver = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-http = { version = "2", default-features = false, features = ["rustls-tls", "http2", "charset"] }
+tauri-plugin-wdio = { version = "1.2.0", optional = true }
+tauri-plugin-wdio-webdriver = { version = "1.2.0", optional = true }

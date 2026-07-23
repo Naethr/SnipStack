@@ -10,7 +10,13 @@ L'objectif est d'ajouter une distribution Desktop avec Tauri 2 au projet existan
 - l'organisation actuelle `frontend/` + `backend/` ;
 - les usages web existants.
 
-Tauri doit être une cible supplémentaire qui embarque le build statique du frontend dans une WebView. La version web doit continuer à fonctionner. Cette passe est uniquement documentaire : aucun code Tauri, aucune dépendance et aucun run applicatif n'ont été ajoutés ou exécutés.
+Tauri doit être une cible supplémentaire qui embarque le build statique du frontend dans une WebView. La version web doit continuer à fonctionner.
+
+Le présent document a d'abord été rédigé pendant la passe documentaire, avant
+toute implémentation. Les runs 0 à 12 ont ensuite appliqué ce plan sur la
+branche `feature/desktop`. Les sections d'analyse initiale restent la trace des
+décisions prises avant le code ; l'état réellement vérifié après intégration
+est consigné dans `runs-journal` et dans `docs/`.
 
 ### Vision produit à terme
 
@@ -28,12 +34,13 @@ Ces capacités sont des contraintes de conception dès maintenant, mais elles ne
 
 ### 2.1 Architecture actuelle
 
-- Frontend : React `19.2.7`, React DOM `19.2.7`, Vite `8.1.1`, `react-icons` `5.7.0`, CSS sans framework.
+- Frontend : React `19.2.8`, React DOM `19.2.8`, Vite `8.1.5`, `react-icons` `5.7.0`, CSS sans framework.
 - Backend : Rails API `8.0.5`, Puma, PostgreSQL et `rack-cors`.
 - Contrat frontend/backend centralisé dans `frontend/src/api/snippetsApi.js`.
 - URL API par défaut : `http://127.0.0.1:3000/api/v1`, remplaçable par `VITE_API_BASE_URL`.
 - CRUD exposé sous `/api/v1/snippets`.
-- CORS configuré par `FRONTEND_ORIGIN`, avec uniquement les origines Vite locales par défaut.
+- CORS configuré par `FRONTEND_ORIGIN`, avec uniquement
+  `http://127.0.0.1:5173` par défaut.
 - Le frontend utilise les API Web standard `fetch`, `navigator.clipboard`, `window`, `document`, `AbortController` et `requestAnimationFrame`.
 
 ### 2.2 Conséquence pour Tauri
@@ -118,25 +125,39 @@ Il ne faut donc pas reprendre :
 
 Les usages actuels sont compatibles avec une WebView Tauri en principe :
 
-- `fetch` pour l'API ;
+- `fetch` pour l'API dans le navigateur ;
 - `AbortController` pour annuler le chargement initial ;
 - raccourci `/` via `keydown` ;
 - focus et scroll du formulaire ;
 - presse-papiers via `navigator.clipboard`.
 
-Ils doivent néanmoins être vérifiés dans la vraie fenêtre Tauri. Si le presse-papiers Web est insuffisant sur une plateforme, un plugin Tauri pourra être envisagé après constat, avec une permission minimale. Il ne doit pas être ajouté préventivement.
+La vérification WSLg a démontré une exception : WebKitGTK refuse le `fetch`
+Web direct de l'origine `tauri://localhost` vers l'API HTTP locale avant
+émission de la requête. Le client centralisé sélectionne donc le plugin HTTP
+officiel Tauri uniquement lorsque `isTauri()` est vrai ; le navigateur conserve
+son `fetch` natif. Le scope Desktop est limité à
+`http://127.0.0.1:3000/api/v1/**`.
+
+Si le presse-papiers Web devient insuffisant sur une plateforme, un plugin
+Tauri pourra être envisagé après constat, avec une permission minimale. Aucun
+plugin Clipboard n'a été nécessaire sous WSLg.
 
 Le contrat JSON, les erreurs `ApiError`, les validations visibles, le CRUD, les filtres, le raccourci clavier, les annonces de statut et le responsive constituent le comportement de référence à préserver.
 
 ### 4.2 Point bloquant réseau et sécurité
 
-Le frontend de production Tauri possède une origine différente de Vite. L'origine réellement utilisée par la WebView Linux doit être relevée sous WSL/WSLg avant d'ajuster `FRONTEND_ORIGIN`. Aucune origine Windows ne doit être ajoutée ou supposée pendant ces runs.
+Le frontend de production Tauri utilise `tauri://localhost` sous WSL/WSLg.
+Cette origine n'est pas ajoutée au CORS Rails : les requêtes Desktop passent
+par le plugin HTTP natif et ne dépendent pas du CORS navigateur. Aucune origine
+Windows n'est ajoutée ou supposée pendant ces runs.
 
 Il faudra :
 
 - configurer `VITE_API_BASE_URL` pour la cible Desktop ;
-- autoriser uniquement les origines Desktop réellement observées côté Rails ;
-- autoriser l'URL API exacte dans `connect-src` de la CSP Tauri ;
+- conserver uniquement les origines navigateur Vite réellement nécessaires
+  côté Rails ;
+- limiter la CSP Tauri aux ressources embarquées et à l'IPC ;
+- limiter la capability HTTP à l'URL API exacte ;
 - utiliser HTTPS pour une API distante ;
 - conserver le fonctionnement Vite/web ;
 - vérifier les requêtes CORS réelles, y compris `OPTIONS`, `POST`, `PATCH` et `DELETE`.
@@ -174,6 +195,22 @@ Points relevés dans `frontend/src/index.css` :
 - responsive déjà prévu à `1120`, `760` et `420` px ;
 - règle `prefers-reduced-motion` déjà présente.
 
+Résultat des runs 6 et 7 :
+
+- Outfit 400/500/600/700 est désormais locale, sans changement mesurable de
+  hauteur ou de retour à la ligne ; l'écart de largeur du H1 est inférieur à
+  `0.05 px` ;
+- le blur de la topbar et les animations n'ont montré aucun gain lorsqu'ils
+  étaient désactivés temporairement ;
+- retirer les grandes ombres dégrade la pire frame du probe ;
+- la grille décorative fixe `body::before` a été identifiée comme le seul coût
+  reproductible : en Tauri seulement, elle conserve son rendu initial mais
+  devient `absolute` au lieu de `fixed` ;
+- sur 1 003 cartes sous rendu logiciel WSLg, cette modification réduit la
+  durée médiane du profil scroll de `1327 ms` à `1114 ms` et la pire frame
+  médiane de `61 ms` à `51 ms` ;
+- le navigateur conserve le CSS original.
+
 Priorités proposées :
 
 1. Embarquer localement Outfit, sous réserve de licence, afin d'éviter une dépendance réseau, un flash de police et une ouverture CSP vers Google. Garder les mêmes graisses pour préserver le rendu.
@@ -186,13 +223,21 @@ Priorités proposées :
 
 ### 4.5 Dépendances
 
-Le socle minimal attendu est :
+Le socle minimal final est :
 
 - `@tauri-apps/cli` en dépendance de développement ;
-- `@tauri-apps/api` seulement si une API Tauri JavaScript est effectivement utilisée ;
+- `@tauri-apps/api` pour détecter le runtime Tauri ;
+- `@tauri-apps/plugin-http` et `tauri-plugin-http`, ajoutés après échec
+  reproduit du `fetch` Web sous WSLg ;
 - crates `tauri` et `tauri-build` côté Rust.
 
-Aucun plugin Store n'est requis pour les premiers runs. Le stockage offline futur fera l'objet d'une sélection dédiée. Aucun plugin Shell/HTTP/Clipboard ne doit être ajouté sans besoin démontré et sans capability ciblée.
+Aucun plugin Store, Shell ou Clipboard n'est requis. Le stockage offline futur
+fera l'objet d'une sélection dédiée. Le plugin HTTP est le seul plugin natif de
+production et sa capability est ciblée.
+
+Les features par défaut du plugin HTTP sont désactivées. Seuls `rustls-tls`,
+`http2` et `charset` sont compilés ; le cookie jar natif n'est pas activé avant
+la conception de l'authentification.
 
 Les versions exactes devront être verrouillées par les lockfiles au moment de l'implémentation. La compatibilité doit être confirmée avec la version courante de Tauri 2, et non déduite du seul ancien dépôt.
 
@@ -221,7 +266,8 @@ L'ordre exécutable et les critères de sortie de chaque passe sont détaillés 
 - Aucun stockage métier parallèle n'est introduit pendant les premiers runs Tauri.
 - Le futur stockage local Desktop est traité comme une réplique synchronisable et non comme un remplacement du backend.
 - L'app Desktop sait signaler clairement une API indisponible.
-- Le CRUD et les erreurs Rails traversent correctement Tauri, CORS et la CSP.
+- Le CRUD et les erreurs Rails traversent correctement le transport HTTP
+  Tauri et la CSP ; le parcours navigateur reste couvert séparément par CORS.
 - Les permissions Tauri et les destinations réseau sont minimales.
 - Aucune ressource visuelle indispensable ne dépend d'un CDN au runtime.
 - Le comportement est validé aux tailles de fenêtre retenues et avec reduced-motion.
@@ -252,7 +298,7 @@ L'ordre exécutable et les critères de sortie de chaque passe sont détaillés 
 
 ### Risques importants
 
-- CORS incorrect entre l'origine Tauri et Rails.
+- Scope HTTP Tauri ou CSP incorrect entre le Desktop et Rails.
 - CSP trop permissive ou, à l'inverse, bloquant l'API ou la police.
 - Confusion entre « frontend empaqueté » et « application autonome avec backend empaqueté ».
 - Divergence de configuration API entre web, Tauri dev et Tauri production.
