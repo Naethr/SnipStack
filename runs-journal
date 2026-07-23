@@ -1,0 +1,124 @@
+# Journal des passes Desktop
+
+## Convention
+
+Une entrée est ajoutée à chaque passe, même si elle échoue ou reste bloquée.
+
+Chaque entrée doit contenir :
+
+- date, branche et commit de départ ;
+- objectif et périmètre ;
+- fichiers modifiés ;
+- actions et commandes réellement exécutées ;
+- résultat observé ;
+- problèmes rencontrés et cause prouvée ou hypothèse clairement signalée ;
+- correction ou décision ;
+- tests et vérifications avec leur résultat ;
+- risques ou travaux restants ;
+- statut : `terminé`, `partiel` ou `bloqué`.
+
+Ne jamais inscrire un test comme réussi s'il n'a pas été exécuté.
+
+---
+
+## Passe documentaire initiale — Analyse et planification
+
+**Date** : 23 juillet 2026  
+**Branche** : `feature/desktop`  
+**Base** : `develop` au commit `adcaa54`  
+**Statut** : terminé
+
+### Objectif
+
+- Créer la branche Desktop depuis `develop`.
+- Analyser l'ancienne conversion Tauri dans `/home/allen/mes_projets/SnippetVault_desktop_app`.
+- Analyser le frontend, ses dépendances, son accès au backend et ses points CSS sensibles.
+- Définir un plan global et l'ordre des futures passes.
+- Ne produire aucun code applicatif et n'exécuter aucun run de build, test, installation ou lancement.
+
+### Fichiers créés
+
+- `brief.md`
+- `runs-workflow.md`
+- `runs-journal`
+
+### Actions réalisées
+
+- Vérification d'un worktree propre sur `develop`.
+- Création de `feature/desktop` depuis `develop`.
+- Lecture des instructions, de la documentation, de la configuration Tauri, du code Rust, des capabilities, du client de persistance et de l'historique pertinent de l'ancien dépôt.
+- Inventaire du frontend et du backend SnipStack.
+- Lecture du client API, des composants, du CSS, de la configuration CORS, du contrôleur Rails, du modèle et des routes.
+- Consultation de la documentation officielle Tauri 2 sur Vite, les prérequis, la CSP, les capabilities, les sidecars, l'origine Windows et l'installeur Windows.
+
+### Faits établis
+
+- L'ancien projet utilise Tauri 2 avec React/Vite, une CSP restrictive et un bundle NSIS.
+- Cette ancienne migration a remplacé Rails par Tauri Store ; cette partie est incompatible avec le périmètre SnipStack.
+- SnipStack utilise Rails/PostgreSQL comme source de vérité et `fetch` vers `/api/v1`.
+- Le CORS actuel n'autorise par défaut que les origines Vite locales.
+- L'interface est responsive jusqu'à `320 px` et possède déjà une règle reduced-motion.
+- Outfit est chargée depuis Google Fonts.
+- Les effets CSS les plus susceptibles de devoir être mesurés sont le blur, le calque fixe masqué, les grandes ombres et les animations d'attente.
+- Le précédent dépôt n'a pas validé son installeur Windows natif.
+
+### Problème structurant relevé
+
+La demande « application installable » ne précise pas où Rails et PostgreSQL doivent s'exécuter. Un shell Tauri n'embarque pas automatiquement ce backend.
+
+### Décision de planification
+
+- Proposer en priorité une app Tauri qui conserve une API Rails séparée.
+- Interdire toute substitution par Tauri Store.
+- Placer une décision d'architecture obligatoire au run 0.
+- Traiter l'embarquement Rails/PostgreSQL comme une étude sidecar distincte s'il devient obligatoire.
+- Reporter toute optimisation CSS après une baseline et un profilage dans la vraie WebView.
+
+### Vérifications exécutées
+
+- `git status --short --branch` avant création de branche : worktree propre sur `develop`.
+- Vérification de la branche après création : `feature/desktop`.
+- Inspections de fichiers et recherches textuelles en lecture seule.
+
+### Vérifications non exécutées
+
+- Aucun `npm install`.
+- Aucun `bundle install`.
+- Aucun lint.
+- Aucun test frontend ou backend.
+- Aucun build Vite, Rails, Rust ou Tauri.
+- Aucun serveur Vite ou Rails.
+- Aucun lancement Tauri.
+- Aucun test visuel ou de performance.
+
+### Reste à faire
+
+- Obtenir les décisions du run 0.
+- Commencer le run 1 uniquement après validation de l'architecture.
+
+---
+
+## Modèle pour la prochaine passe
+
+### Run N — Titre
+
+**Date** :  
+**Branche** :  
+**Commit de départ** :  
+**Statut** :
+
+#### Objectif et périmètre
+
+#### Fichiers modifiés
+
+#### Actions et commandes exécutées
+
+#### Résultats observés
+
+#### Problèmes et diagnostic
+
+#### Corrections ou décisions
+
+#### Tests et vérifications
+
+#### Risques et travaux restants
