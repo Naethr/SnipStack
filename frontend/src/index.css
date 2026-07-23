@@ -1,6 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap");
-
 :root {
+  color-scheme: dark;
+
   /* 1 — blue-ink base family */
   --base-950: #0c1822;
   --base-900: #112432;
@@ -69,6 +69,10 @@ body::before {
   content: "";
   mask-image: linear-gradient(to bottom, rgba(3, 12, 18, 0.82), transparent 72%);
   pointer-events: none;
+}
+
+html[data-runtime="tauri"] body::before {
+  position: absolute;
 }
 
 button,
