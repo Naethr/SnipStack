@@ -1,82 +1,74 @@
-# Décision d'architecture Desktop initiale
+# Initial Desktop Architecture Decision
 
-**Date** : 23 juillet 2026  
-**Portée** : runs 0 à 12  
-**Statut** : accepté
+**Date:** July 23, 2026
 
-## Décision
+**Scope:** runs 0–12
 
-La variante Desktop de SnipStack est un client Tauri 2 Linux exécuté et validé uniquement sous WSL/WSLg.
+**Status:** accepted
 
-Tauri embarque le build statique du frontend React/Vite. Le client Desktop continue d'utiliser l'API Rails séparée et PostgreSQL reste la source de vérité serveur.
+## Decision
 
-## Contrat initial
+SnipStack Desktop is a Tauri 2 Linux client executed and validated only under
+WSL/WSLg. Tauri embeds the React/Vite static build. The desktop client keeps
+using the separate Rails API, and PostgreSQL remains the server-side source of
+truth.
 
-- Environnement Desktop : Linux sous WSL/WSLg.
-- Nom produit : `SnipStack`.
-- Version initiale : `0.1.0`.
-- Identifiant Tauri : `com.allen.snipstack`.
-- Fenêtre principale : `1280 × 800`, redimensionnable, centrée, sans plein écran forcé.
-- Taille minimale : `720 × 600`, cohérente avec le breakpoint mobile existant à `760 px`.
-- API de développement : `http://127.0.0.1:3000/api/v1`.
-- Backend : Rails lancé séparément sous WSL.
-- Base : PostgreSQL existant, lancé séparément.
-- Client HTTP web : `fetch` natif via `frontend/src/api/snippetsApi.js`.
-- Client HTTP Desktop : plugin officiel Tauri HTTP, activé uniquement lorsque
-  `isTauri()` est vrai et limité à `http://127.0.0.1:3000/api/v1/**`.
-- État API indisponible : interface d'erreur et reprise manuelle existantes, sans prétendre à un mode offline complet.
-- Stockage métier local : aucun pendant les runs 0 à 12.
-- Artefacts visés : binaire Linux release et bundle Linux produit par Tauri si l'outillage WSL le permet.
+## Initial contract
 
-## Matrice d'environnement API
+- Desktop environment: Linux under WSL/WSLg.
+- Product: `SnipStack` `0.1.0`.
+- Tauri identifier: `com.allen.snipstack`.
+- Main window: `1280×800`, centered and resizable, no forced fullscreen.
+- Minimum window: `720×600`.
+- Development API: `http://127.0.0.1:3000/api/v1`.
+- Backend and database: Rails and PostgreSQL started separately under WSL.
+- Browser HTTP client: native `fetch` through
+  `frontend/src/api/snippetsApi.js`.
+- Desktop HTTP client: official Tauri HTTP plugin, selected only when
+  `isTauri()` is true and scoped to
+  `http://127.0.0.1:3000/api/v1/**`.
+- Unavailable API: explicit error UI and manual retry, not full offline mode.
+- Local business storage during runs 0–12: none.
+- Bundle targets: Linux Debian package and AppImage.
 
-| Contexte | URL actuelle | Transport |
+## API environment matrix
+
+| Context | Current URL | Transport |
 | --- | --- | --- |
-| Web local Vite | fallback `http://127.0.0.1:3000/api/v1` ou `VITE_API_BASE_URL` | `fetch` navigateur |
-| Tauri dev WSLg | `frontend/.env.desktop` | plugin HTTP Tauri |
-| Tauri bundle WSLg | valeur `VITE_API_BASE_URL` au build, fallback local actuel | plugin HTTP Tauri |
-| API distante future | non configurée ; HTTPS obligatoire | à définir au run de déploiement |
+| Local Vite web | fallback local URL or `VITE_API_BASE_URL` | browser `fetch` |
+| Tauri dev under WSLg | `frontend/.env.desktop` | Tauri HTTP plugin |
+| Tauri bundle under WSLg | build-time `VITE_API_BASE_URL` or local fallback | Tauri HTTP plugin |
+| Future remote API | not configured; HTTPS required | defined during deployment run |
 
-Aucun secret ne peut être placé dans une variable `VITE_*`, car sa valeur est
-publique dans le bundle frontend.
+Never put a secret in `VITE_*`: these values are public in the frontend bundle.
 
-## Sécurité initiale
+## Initial security
 
-- CSP limitée aux ressources embarquées et à l'IPC Tauri.
-- CORS limité à `http://127.0.0.1:5173` : le client HTTP Tauri ne dépend pas du CORS
-  navigateur.
-- Une seule capability de production pour `main`, composée uniquement du
-  client HTTP limité à l'API locale.
-- Aucun plugin Store, Shell ou Clipboard.
-- Aucun secret dans le bundle frontend.
+- CSP is limited to embedded resources and Tauri IPC.
+- Rails CORS defaults to `http://127.0.0.1:5173`; the native Tauri client does
+  not use browser CORS.
+- One production capability applies to `main` and contains only API-scoped
+  HTTP access.
+- No Store, Shell, Clipboard, or filesystem plugin.
+- No secret in the frontend bundle.
 
-## Compatibilité future
+## Future compatibility
 
-Les choix actuels doivent laisser possibles :
+Current choices preserve browser deployment, shared authentication, a desktop
+local replica, offline use, and bidirectional synchronization with explicit
+conflict handling. Those capabilities remain outside runs 0–12.
 
-- le déploiement du même frontend dans un navigateur ;
-- une authentification partagée web/Desktop ;
-- une réplique locale Desktop ;
-- un mode offline ;
-- une synchronisation bidirectionnelle avec résolution explicite des conflits.
+## Out of scope
 
-Ces capacités restent hors périmètre des runs 0 à 12.
+Windows/NSIS/MSI/WebView2, macOS, embedded Rails sidecar, authentication,
+offline storage, synchronization, external publication, and signing.
 
-## Hors périmètre
+## Consequences
 
-- Windows, NSIS, MSI et WebView2 ;
-- macOS ;
-- backend Rails embarqué comme sidecar ;
-- authentification ;
-- stockage offline ;
-- synchronisation ;
-- publication externe et signature.
-
-## Conséquences
-
-- Le Desktop dépend de Rails pendant les runs 0 à 12.
-- Le plugin HTTP Tauri est requis : WebKitGTK a refusé le `fetch` Web direct
-  vers l'API HTTP locale avant émission de la requête.
-- Une indisponibilité de Rails est un état visible, pas un stockage alternatif.
-- Un bundle WSL/WSLg ne constitue aucune preuve de compatibilité Windows.
-- Toute modification de cette décision doit être validée puis répercutée dans `brief.md`, `runs-workflow.md` et `runs-journal`.
+- Desktop depends on Rails during runs 0–12.
+- The HTTP plugin is required because WebKitGTK rejected direct Web `fetch`
+  to the local API before emitting a request.
+- Rails unavailability is a visible state, not alternate storage.
+- WSLg output is not Windows compatibility evidence.
+- Any change to this decision must be approved and reflected in `brief.md`,
+  `runs-workflow.md`, and `runs-journal.md`.

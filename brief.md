@@ -1,324 +1,241 @@
-# Brief d'intégration Desktop — SnipStack
+# SnipStack Desktop Integration Brief
 
-## 1. Objet et garde-fous
+## 1. Purpose and guardrails
 
-L'objectif est d'ajouter une distribution Desktop avec Tauri 2 au projet existant, sans remplacer :
+The goal is to add a Tauri 2 desktop distribution without replacing:
 
-- le frontend React/Vite ;
-- l'API Rails ;
-- PostgreSQL ;
-- l'organisation actuelle `frontend/` + `backend/` ;
-- les usages web existants.
+- the React/Vite frontend;
+- the Rails API;
+- PostgreSQL;
+- the `frontend/` + `backend/` repository layout;
+- existing browser use.
 
-Tauri doit être une cible supplémentaire qui embarque le build statique du frontend dans une WebView. La version web doit continuer à fonctionner.
+Tauri is an additional target that embeds the static frontend in a WebView.
+The browser version must continue to work.
 
-Le présent document a d'abord été rédigé pendant la passe documentaire, avant
-toute implémentation. Les runs 0 à 12 ont ensuite appliqué ce plan sur la
-branche `feature/desktop`. Les sections d'analyse initiale restent la trace des
-décisions prises avant le code ; l'état réellement vérifié après intégration
-est consigné dans `runs-journal` et dans `docs/`.
+This brief was initially written before implementation. Runs 0–12 then
+implemented and validated the plan on `feature/desktop`. Historical analysis
+below records the reasoning; verified implementation evidence is in
+`runs-journal.md` and `docs/`.
 
-### Vision produit à terme
+### Long-term product direction
 
-L'architecture ajoutée maintenant ne doit pas bloquer les évolutions déjà prévues :
+The current architecture must not block these agreed future capabilities:
 
-- SnipStack sera également déployée comme application web accessible dans un navigateur ;
-- une authentification avec login sera ajoutée ;
-- chaque snippet devra être rattaché à l'utilisateur authentifié ;
-- les snippets d'un même utilisateur devront se synchroniser dans les deux sens entre le navigateur et l'application Desktop ;
-- l'application Desktop devra rester utilisable hors ligne, puis resynchroniser ses changements lorsque l'API redevient disponible.
+- deploy SnipStack as a browser application;
+- add shared browser/desktop authentication;
+- associate every snippet with its authenticated user;
+- synchronize a user's snippets in both directions between browser, Rails,
+  and desktop;
+- keep the desktop usable offline and synchronize changes when the API returns.
 
-Ces capacités sont des contraintes de conception dès maintenant, mais elles ne font pas partie de l'implémentation Tauri initiale. Elles feront l'objet de passes dédiées après stabilisation du shell Desktop et du contrat API actuel.
+These are design constraints, not part of the initial Tauri implementation.
+They are assigned to future runs 13–17.
 
-## 2. État vérifié de SnipStack
+## 2. Verified current architecture
 
-### 2.1 Architecture actuelle
+- Frontend: React 19, React DOM 19, Vite 8, `react-icons`, and plain CSS.
+- Backend: Rails API 8, Puma, PostgreSQL, and `rack-cors`.
+- Network boundary: `frontend/src/api/snippetsApi.js`.
+- Default API URL: `http://127.0.0.1:3000/api/v1`, overridable with
+  `VITE_API_BASE_URL`.
+- CRUD endpoint: `/api/v1/snippets`.
+- Browser CORS default: `http://127.0.0.1:5173`.
+- Desktop: Tauri 2 under `frontend/src-tauri/`.
+- Desktop bundles: Debian package and AppImage.
+- Validated desktop environment: Linux under WSL2/WSLg only.
 
-- Frontend : React `19.2.8`, React DOM `19.2.8`, Vite `8.1.5`, `react-icons` `5.7.0`, CSS sans framework.
-- Backend : Rails API `8.0.5`, Puma, PostgreSQL et `rack-cors`.
-- Contrat frontend/backend centralisé dans `frontend/src/api/snippetsApi.js`.
-- URL API par défaut : `http://127.0.0.1:3000/api/v1`, remplaçable par `VITE_API_BASE_URL`.
-- CRUD exposé sous `/api/v1/snippets`.
-- CORS configuré par `FRONTEND_ORIGIN`, avec uniquement
-  `http://127.0.0.1:5173` par défaut.
-- Le frontend utilise les API Web standard `fetch`, `navigator.clipboard`, `window`, `document`, `AbortController` et `requestAnimationFrame`.
+Rails and PostgreSQL remain separate. Adding `src-tauri` does not turn them
+into an embedded desktop backend.
 
-### 2.2 Conséquence pour Tauri
+### Runtime transport
 
-Le build React peut être embarqué sans réécriture de l'interface. En revanche, le frontend empaqueté doit toujours joindre Rails. Tauri ne transforme pas Rails/PostgreSQL en binaire Desktop par simple ajout de `src-tauri`.
+The browser uses native `fetch`. During WSLg validation, WebKitGTK rejected a
+direct Web `fetch` from `tauri://localhost` to the local HTTP API before the
+request was emitted. The centralized client therefore selects the official
+Tauri HTTP plugin only when `isTauri()` is true.
 
-Avant tout code, il faut donc valider l'un de ces modes :
+The production capability is limited to:
 
-| Mode | Description | Impact | Avis |
-| --- | --- | --- | --- |
-| API Rails séparée | L'app Tauri appelle une API Rails déjà opérée sur une URL HTTPS ou un réseau maîtrisé. | Faible : configuration d'URL, CORS, CSP et gestion de l'indisponibilité. | Recommandé pour la première version, car il préserve réellement l'architecture. |
-| Backend lancé séparément sur la machine | L'utilisateur installe/lance Rails et PostgreSQL à part, puis ouvre l'app Tauri. | Faible côté code, mauvaise expérience d'installation autonome. | Acceptable seulement pour un outil de développement interne. |
-| Backend embarqué comme sidecar | L'installeur contient un exécutable autonome dérivé du backend et pilote son cycle de vie. | Très élevé : Ruby/Rails, gems natives, PostgreSQL, migrations, port, logs, arrêt et binaires par plateforme. | À traiter comme un projet distinct après étude de faisabilité, pas comme le scaffold Tauri initial. |
+```text
+http://127.0.0.1:3000/api/v1/**
+```
 
-Le mode « API Rails séparée » est la base proposée dans `runs-workflow.md`. Si l'exigence réelle est une application entièrement locale et autonome, le run 0 doit être réécrit et validé avant de continuer.
+The Tauri origin is not added to Rails CORS because native HTTP transport does
+not use browser CORS.
 
-La vision produit clarifiée confirme que Rails devra à terme être accessible par les clients web et Desktop. L'API Rails séparée est donc la direction d'architecture retenue pour préparer la synchronisation future. Le mode hors ligne ne signifie pas embarquer ou remplacer Rails : il nécessitera plus tard une copie locale persistante sur le Desktop, une file de mutations et un protocole de synchronisation avec le serveur.
+## 3. Desktop/backend contract
 
-### 2.3 Frontière entre la première intégration et les passes futures
+The selected initial model is a separate Rails API:
 
-La première intégration Tauri doit :
+| Model | Impact | Decision |
+| --- | --- | --- |
+| Separately operated Rails API | Small configuration, CORS/CSP, and availability handling changes | Selected |
+| Rails and PostgreSQL manually started on the same machine | Suitable for local development, not standalone installation | Current WSLg workflow |
+| Embedded Rails/PostgreSQL sidecar | Very high packaging, migration, lifecycle, and platform cost | Out of scope |
 
-- conserver l'appel direct à l'API Rails existante ;
-- fonctionner sous WSL/WSLg lorsque l'API est disponible ;
-- présenter clairement l'état hors connexion ou API indisponible ;
-- éviter les choix qui empêcheraient d'ajouter ensuite authentification, cache local et synchronisation.
+The initial desktop integration:
 
-Elle ne doit pas encore :
+- calls the existing Rails API;
+- works under WSL/WSLg while the API is available;
+- displays an explicit unavailable/offline error state;
+- preserves boundaries needed for future auth, local replicas, and sync.
 
-- ajouter un écran de login ou un système d'authentification ;
-- modifier le schéma pour rattacher les snippets à un utilisateur ;
-- ajouter une base locale ou Tauri Store ;
-- implémenter une file de mutations, une résolution de conflits ou une synchronisation ;
-- revendiquer un fonctionnement hors ligne complet.
+It does not:
 
-Lors des futures passes offline/sync, le stockage local sera une réplique contrôlée des données de l'utilisateur, et non un remplacement de Rails/PostgreSQL.
+- add login;
+- associate snippets with users;
+- add local business-data storage or Tauri Store;
+- add an offline mutation queue;
+- resolve conflicts or synchronize;
+- claim complete offline operation.
 
-## 3. Analyse du précédent `SnippetVault_desktop_app`
+Future desktop storage must be a controlled replica, not a replacement for
+Rails/PostgreSQL.
 
-### 3.1 Éléments pertinents et réutilisables
+## 4. Decisions inherited—and rejected—from SnippetVault
 
-Le dépôt antérieur fournit une référence concrète et cohérente pour :
+The earlier `/home/allen/mes_projets/SnippetVault_desktop_app` repository was
+useful as a reference for Tauri 2 layout, Vite hooks, Rust scaffolding,
+capabilities, CSP, and separating WSLg validation from Windows claims.
 
-- Tauri 2 placé sous `frontend/src-tauri/` ;
-- les scripts npm `tauri`, `dev` et `build` ;
-- les hooks Tauri `beforeDevCommand`, `beforeBuildCommand`, `devUrl` et `frontendDist`;
-- la configuration Vite adaptée à Tauri : port strict, `TAURI_DEV_HOST`, exclusion de `src-tauri` du watcher et cible de build selon la plateforme ;
-- une configuration de fenêtre, un identifiant d'application, des icônes et un bundle NSIS ;
-- une CSP restrictive ;
-- des capabilities minimales liées à la seule fenêtre `main` ;
-- le squelette Rust minimal `main.rs`, `lib.rs`, `build.rs` et `Cargo.toml` ;
-- la séparation entre validation WSL/WSLg et validation réelle d'un installeur Windows natif.
-
-Le précédent projet a vérifié le build et l'exécution Tauri sous WSL/WSLg. Son installeur Windows natif n'a pas été validé. Ses valeurs de fenêtre (`fullscreen: true`, largeur minimale de `980`) et son identifiant produit ne doivent pas être copiés sans décision propre à SnipStack.
-
-Pour SnipStack, les runs Tauri de ce workflow sont limités à WSL/WSLg. La configuration ou la validation Windows, NSIS, MSI et WebView2 sont hors périmètre. Les éléments Windows de l'ancien dépôt restent uniquement un retour d'expérience historique.
-
-### 3.2 Éléments à ne pas reprendre
-
-Cette ancienne conversion a supprimé Rails, l'API HTTP et sa base, puis remplacé la persistance par `@tauri-apps/plugin-store`. Ce choix est explicitement hors périmètre ici.
-
-Il ne faut donc pas reprendre :
-
-- `@tauri-apps/plugin-store` ;
-- la réécriture de `snippetsApi.js` vers un stockage local ;
-- la génération d'identifiants ou les validations métier dans le frontend à la place de Rails ;
-- une CSP sans destination API ;
-- la promesse d'une application sans serveur tant qu'un mode d'hébergement du backend n'a pas été validé ;
-- les permissions Store ;
-- le positionnement « local, sans réseau » de l'ancien produit.
-
-### 3.3 Enseignements opérationnels
-
-- Les résultats obtenus sous WSL/WSLg ne valent que pour la cible Linux exécutée via WSLg.
-- Aucun support ou installeur Windows ne doit être annoncé à partir de ces runs.
-- Le chemin de données, le cycle de vie et l'absence de ports de l'ancien projet ne s'appliquent pas à SnipStack, puisque Rails est conservé.
-- Les permissions Tauri doivent être ajoutées uniquement lorsqu'une API native est réellement nécessaire.
-
-## 4. Préservation du frontend et analyse de performance
-
-### 4.1 Compatibilité fonctionnelle
-
-Les usages actuels sont compatibles avec une WebView Tauri en principe :
-
-- `fetch` pour l'API dans le navigateur ;
-- `AbortController` pour annuler le chargement initial ;
-- raccourci `/` via `keydown` ;
-- focus et scroll du formulaire ;
-- presse-papiers via `navigator.clipboard`.
-
-La vérification WSLg a démontré une exception : WebKitGTK refuse le `fetch`
-Web direct de l'origine `tauri://localhost` vers l'API HTTP locale avant
-émission de la requête. Le client centralisé sélectionne donc le plugin HTTP
-officiel Tauri uniquement lorsque `isTauri()` est vrai ; le navigateur conserve
-son `fetch` natif. Le scope Desktop est limité à
-`http://127.0.0.1:3000/api/v1/**`.
-
-Si le presse-papiers Web devient insuffisant sur une plateforme, un plugin
-Tauri pourra être envisagé après constat, avec une permission minimale. Aucun
-plugin Clipboard n'a été nécessaire sous WSLg.
-
-Le contrat JSON, les erreurs `ApiError`, les validations visibles, le CRUD, les filtres, le raccourci clavier, les annonces de statut et le responsive constituent le comportement de référence à préserver.
-
-### 4.2 Point bloquant réseau et sécurité
-
-Le frontend de production Tauri utilise `tauri://localhost` sous WSL/WSLg.
-Cette origine n'est pas ajoutée au CORS Rails : les requêtes Desktop passent
-par le plugin HTTP natif et ne dépendent pas du CORS navigateur. Aucune origine
-Windows n'est ajoutée ou supposée pendant ces runs.
-
-Il faudra :
-
-- configurer `VITE_API_BASE_URL` pour la cible Desktop ;
-- conserver uniquement les origines navigateur Vite réellement nécessaires
-  côté Rails ;
-- limiter la CSP Tauri aux ressources embarquées et à l'IPC ;
-- limiter la capability HTTP à l'URL API exacte ;
-- utiliser HTTPS pour une API distante ;
-- conserver le fonctionnement Vite/web ;
-- vérifier les requêtes CORS réelles, y compris `OPTIONS`, `POST`, `PATCH` et `DELETE`.
-
-Une API Rails exposée à distance sans authentification serait un changement de risque majeur. Le dépôt actuel ne contient pas de mécanisme d'authentification. La première intégration doit donc rester dans un environnement de développement maîtrisé. L'authentification future devra être conçue conjointement pour les clients web et Desktop avant tout déploiement public.
-
-### 4.3 Préparation de l'authentification, du offline et de la synchronisation
-
-Sans les implémenter maintenant, l'intégration initiale doit préserver les frontières suivantes :
-
-- le client API reste centralisé afin de pouvoir y ajouter ultérieurement session, renouvellement et erreurs d'authentification ;
-- les données métier continuent d'être validées par Rails ;
-- le futur stockage local Desktop est placé derrière une couche de données dédiée, sans accès direct dispersé dans les composants React ;
-- les opérations de création, modification et suppression devront pouvoir porter un identifiant client stable, un propriétaire, une version et des dates de synchronisation ;
-- les états `en ligne`, `hors ligne`, `synchronisation`, `conflit` et `erreur d'authentification` devront être distincts dans l'interface ;
-- les secrets d'authentification ne devront pas être stockés en clair dans le frontend ou dans un fichier Store générique ;
-- la stratégie de conflit, de suppression, de pagination et de resynchronisation complète devra être décidée avant toute écriture offline.
-
-Le choix de la technologie de stockage local n'est pas arrêté. Il devra être fondé sur les besoins de requêtes, transactions, migrations, chiffrement éventuel et volume. L'ancien usage de Tauri Store ne constitue pas une décision pour SnipStack.
-
-### 4.4 CSS et ressources à surveiller
-
-Le style original doit rester la référence. Aucun effet ne doit être supprimé sur intuition seule.
-
-Points relevés dans `frontend/src/index.css` :
-
-- police Outfit chargée depuis Google Fonts par `@import` ;
-- `backdrop-filter: blur(18px)` sur la barre supérieure ;
-- calque fixe plein écran `body::before` avec grille et `mask-image` ;
-- gradients multiples et ombres larges ;
-- panneau de composition `sticky` ;
-- transitions de cartes et boutons avec ombres et transformations ;
-- animations continues du spinner et des skeletons ;
-- animation d'entrée des messages de statut ;
-- responsive déjà prévu à `1120`, `760` et `420` px ;
-- règle `prefers-reduced-motion` déjà présente.
-
-Résultat des runs 6 et 7 :
-
-- Outfit 400/500/600/700 est désormais locale, sans changement mesurable de
-  hauteur ou de retour à la ligne ; l'écart de largeur du H1 est inférieur à
-  `0.05 px` ;
-- le blur de la topbar et les animations n'ont montré aucun gain lorsqu'ils
-  étaient désactivés temporairement ;
-- retirer les grandes ombres dégrade la pire frame du probe ;
-- la grille décorative fixe `body::before` a été identifiée comme le seul coût
-  reproductible : en Tauri seulement, elle conserve son rendu initial mais
-  devient `absolute` au lieu de `fixed` ;
-- sur 1 003 cartes sous rendu logiciel WSLg, cette modification réduit la
-  durée médiane du profil scroll de `1327 ms` à `1114 ms` et la pire frame
-  médiane de `61 ms` à `51 ms` ;
-- le navigateur conserve le CSS original.
-
-Priorités proposées :
-
-1. Embarquer localement Outfit, sous réserve de licence, afin d'éviter une dépendance réseau, un flash de police et une ouverture CSP vers Google. Garder les mêmes graisses pour préserver le rendu.
-2. Profiler dans la WebView avant/après sur la plateforme cible. Examiner d'abord le `backdrop-filter`, le calque fixe masqué et les grandes ombres, qui peuvent provoquer des repaints.
-3. Vérifier les animations uniquement pendant leur état actif. La règle reduced-motion existante doit être conservée.
-4. Tester le scroll avec une bibliothèque représentative, le filtre qui reconstruit le texte recherchable à chaque saisie et le rendu de toutes les cartes. N'introduire virtualisation, debounce ou `content-visibility` que sur preuve d'un problème.
-5. Définir les dimensions minimales de fenêtre à partir des breakpoints existants. Ne pas imposer les `980 px` de l'ancien projet : SnipStack est déjà conçu jusqu'à `320 px`.
-
-`frontend/src/App.css` contient des styles du template Vite mais n'est importé nulle part ; il n'a donc pas de coût runtime vérifié. Son nettoyage est hors périmètre de l'intégration Tauri.
-
-### 4.5 Dépendances
-
-Le socle minimal final est :
-
-- `@tauri-apps/cli` en dépendance de développement ;
-- `@tauri-apps/api` pour détecter le runtime Tauri ;
-- `@tauri-apps/plugin-http` et `tauri-plugin-http`, ajoutés après échec
-  reproduit du `fetch` Web sous WSLg ;
-- crates `tauri` et `tauri-build` côté Rust.
-
-Aucun plugin Store, Shell ou Clipboard n'est requis. Le stockage offline futur
-fera l'objet d'une sélection dédiée. Le plugin HTTP est le seul plugin natif de
-production et sa capability est ciblée.
-
-Les features par défaut du plugin HTTP sont désactivées. Seuls `rustls-tls`,
-`http2` et `charset` sont compilés ; le cookie jar natif n'est pas activé avant
-la conception de l'authentification.
-
-Les versions exactes devront être verrouillées par les lockfiles au moment de l'implémentation. La compatibilité doit être confirmée avec la version courante de Tauri 2, et non déduite du seul ancien dépôt.
-
-## 5. Plan global d'intégration
-
-1. **Formaliser le contrat Desktop/backend initial** : API Rails séparée, environnement WSL/WSLg, URL de développement et état API indisponible.
-2. **Établir la référence web** : comportement, captures aux largeurs clés, tests disponibles et temps/ressources de référence.
-3. **Ajouter le scaffold Tauri minimal** sous `frontend/src-tauri/`, sans modifier les composants ni le contrat API.
-4. **Configurer Vite et les scripts** pour que web et Tauri coexistent.
-5. **Configurer fenêtre, identité et assets** propres à SnipStack, sans reprendre les choix plein écran de SnippetVault.
-6. **Brancher l'API Rails** avec une URL Desktop explicite, une CSP restrictive et un CORS limité aux origines nécessaires.
-7. **Vérifier les interactions Desktop** : chargement, CRUD, erreurs réseau, clavier, focus, scroll, presse-papiers, redimensionnement et fermeture/réouverture.
-8. **Mesurer puis optimiser** les ressources distantes et les effets CSS seulement si les mesures le justifient.
-9. **Durcir et tester** les capabilities, la CSP, les erreurs, le contrat API et les régressions web.
-10. **Construire et valider sous WSL/WSLg uniquement** : compilation, lancement et artefact Linux, sans revendication Windows.
-11. **Documenter l'usage WSL/WSLg** : prérequis backend, configuration, lancement, logs et limites connues.
-12. **Préparer les passes produit futures** : déploiement navigateur, authentification partagée, stockage local Desktop, mode offline et synchronisation bidirectionnelle.
-
-L'ordre exécutable et les critères de sortie de chaque passe sont détaillés dans `runs-workflow.md`.
-
-## 6. Critères d'acceptation globaux
-
-- La version web existante reste fonctionnelle.
-- Le frontend affiché dans Tauri est visuellement et fonctionnellement équivalent.
-- Rails et PostgreSQL restent la source de vérité serveur.
-- Aucun stockage métier parallèle n'est introduit pendant les premiers runs Tauri.
-- Le futur stockage local Desktop est traité comme une réplique synchronisable et non comme un remplacement du backend.
-- L'app Desktop sait signaler clairement une API indisponible.
-- Le CRUD et les erreurs Rails traversent correctement le transport HTTP
-  Tauri et la CSP ; le parcours navigateur reste couvert séparément par CORS.
-- Les permissions Tauri et les destinations réseau sont minimales.
-- Aucune ressource visuelle indispensable ne dépend d'un CDN au runtime.
-- Le comportement est validé aux tailles de fenêtre retenues et avec reduced-motion.
-- Les performances sont mesurées avant toute dégradation visuelle.
-- Les validations Tauri sont limitées et annoncées comme WSL/WSLg ; aucun support Windows n'est revendiqué.
-- Les premiers runs n'implémentent ni login, ni offline complet, ni synchronisation, mais n'en bloquent pas l'ajout futur.
-- Chaque passe est consignée dans `runs-journal`.
-
-## 7. Risques et inconnues
-
-### Décisions acquises
-
-- L'application aura une version web navigateur.
-- Une authentification partagée sera ajoutée.
-- Le Desktop devra fonctionner hors ligne et synchroniser les snippets dans les deux sens.
-- Ces capacités sont différées dans des passes futures.
-- Les runs Tauri actuels sont exécutés et validés uniquement sous WSL/WSLg.
-
-### Décisions à prendre avant les passes auth/sync
-
-- protocole d'authentification adapté au navigateur et à Tauri ;
-- stockage sécurisé de la session Desktop ;
-- schéma de propriété, identifiants stables et versionnement des snippets ;
-- technologie de stockage local ;
-- stratégie de file d'attente, retry, idempotence, conflits et suppressions ;
-- comportement après expiration de session pendant une période hors ligne ;
-- URL, hébergement et politique de sécurité de l'API déployée.
-
-### Risques importants
-
-- Scope HTTP Tauri ou CSP incorrect entre le Desktop et Rails.
-- CSP trop permissive ou, à l'inverse, bloquant l'API ou la police.
-- Confusion entre « frontend empaqueté » et « application autonome avec backend empaqueté ».
-- Divergence de configuration API entre web, Tauri dev et Tauri production.
-- fuite ou stockage inadapté de jetons d'authentification sur Desktop.
-- perte, duplication ou écrasement de snippets lors d'une reprise de synchronisation.
-- divergence de données entre la réplique locale et Rails en cas de conflits.
-- validation WSL/WSLg présentée à tort comme support natif Windows.
-- dégradation visuelle due à des optimisations CSS prématurées.
-
-## 8. Références
-
-### Dépôts locaux analysés
+SnipStack deliberately did not copy:
+
+- Tauri Store as business persistence;
+- replacement of `snippetsApi.js`;
+- frontend-generated server identities or validation;
+- a no-server product claim;
+- Store, Shell, or Clipboard permissions;
+- fullscreen defaults, a `980 px` minimum width, or Windows bundle choices.
+
+Its WSL/WSLg results are evidence only for Linux running through WSLg.
+
+## 5. Frontend compatibility and performance
+
+The reference behavior includes JSON/API errors, Rails validation messages,
+CRUD, filters, `/` shortcut, focus, scroll, clipboard, status announcements,
+responsive layouts, and reduced motion.
+
+Outfit weights 400/500/600/700 are now bundled locally. Compared with the
+previous Google Fonts version, measured heights and line wrapping were
+unchanged; the H1 width difference was below `0.05 px`.
+
+The CSS investigation covered:
+
+- top-bar `backdrop-filter`;
+- the fixed masked `body::before` grid;
+- large shadows and gradients;
+- spinner, skeleton, and status animations;
+- full-list rendering and filtering.
+
+Only one measured optimization was retained. In Tauri, the decorative grid
+keeps its appearance but uses `position: absolute` instead of `fixed`. With
+1,003 cards under WSLg software rendering, the original run reduced median
+scroll time from `1327 ms` to `1114 ms` and median worst-frame time from
+`61 ms` to `51 ms`. The corrective audit reproduced the comparative gain.
+The browser CSS remains unchanged.
+
+Virtualization, debounce, and `content-visibility` remain future options only
+if real user data demonstrates a need.
+
+## 6. Dependencies and security
+
+The desktop foundation contains:
+
+- `@tauri-apps/cli`;
+- `@tauri-apps/api` for runtime detection;
+- `@tauri-apps/plugin-http` and `tauri-plugin-http`;
+- Rust crates `tauri` and `tauri-build`.
+
+No Store, Shell, or Clipboard plugin is required. HTTP plugin default features
+are disabled; only `rustls-tls`, `http2`, and `charset` are enabled. Native
+cookie storage remains disabled pending authentication design.
+
+Security rules:
+
+- keep a restrictive CSP;
+- keep browser CORS limited to actual browser origins;
+- scope native HTTP to the exact API URL;
+- require HTTPS for a remote API;
+- never place secrets in `VITE_*` variables;
+- never execute snippet content;
+- never distribute a build with `webdriver` or `--all-features`.
+
+An unauthenticated remote Rails API would be a major risk change. Public
+deployment must wait for the authentication run.
+
+## 7. Integration plan and completed state
+
+Runs 0–12 completed the initial integration:
+
+1. desktop/backend contract;
+2. web baseline;
+3. minimal Tauri scaffold;
+4. multi-target Vite configuration;
+5. Rails API, native HTTP, CORS, and CSP;
+6. desktop window and interaction checks;
+7. local fonts;
+8. measured CSS/list profiling;
+9. automated coverage;
+10. Tauri hardening;
+11. WSL/WSLg build and artifact lifecycle;
+12. final documentation and publication decision.
+
+The corrective audit replayed the required checks, strengthened coverage, and
+confirmed the final AppImage lifecycle. The Debian package was built and
+inspected but not installed.
+
+## 8. Global acceptance state
+
+Verified:
+
+- browser behavior remains functional;
+- browser and Tauri use the same React interface;
+- Rails/PostgreSQL remain the server source of truth;
+- desktop API unavailability is explicit;
+- CRUD crosses the native Tauri HTTP transport;
+- browser CRUD remains covered through native `fetch` and CORS;
+- CSP, permissions, and network destinations are minimal;
+- required visual resources are local;
+- key window sizes and reduced motion are covered;
+- performance changes are measurement-backed;
+- AppImage launch, CRUD, restart, and offline/retry behavior work under WSLg.
+
+Not verified or not implemented:
+
+- Debian package installation;
+- artifact signing or publication;
+- Windows, macOS, or native Linux;
+- external security audit;
+- login, real offline storage, synchronization, and conflicts.
+
+## 9. Future runs and unresolved decisions
+
+Before auth/offline/sync work, decide:
+
+- browser/Tauri authentication protocol;
+- secure desktop session storage;
+- ownership, stable IDs, and snippet versioning;
+- transactional local storage and migrations;
+- mutation queue, retry, idempotency, tombstones, and conflict policy;
+- expired-session behavior during offline use;
+- deployed API URL, hosting, HTTPS, observability, and backups.
+
+Major risks are overly broad HTTP capability/CSP, configuration divergence,
+token leakage, silent data loss during sync, treating a local replica as a new
+source of truth, and misrepresenting WSLg validation as platform support.
+
+## 10. References
+
+Local repositories reviewed:
 
 - `/home/allen/mes_projets/SnipStack`
 - `/home/allen/mes_projets/SnippetVault_desktop_app`
 
-### Documentation officielle consultée le 23 juillet 2026
+Official documentation consulted on July 23, 2026:
 
-- Tauri + Vite : <https://v2.tauri.app/start/frontend/vite/>
-- Prérequis Tauri : <https://v2.tauri.app/start/prerequisites/>
-- Capabilities : <https://v2.tauri.app/security/capabilities/>
-- Content Security Policy : <https://v2.tauri.app/security/csp/>
-- Binaires externes/sidecars : <https://v2.tauri.app/develop/sidecar/>
+- <https://v2.tauri.app/start/frontend/vite/>
+- <https://v2.tauri.app/start/prerequisites/>
+- <https://v2.tauri.app/security/capabilities/>
+- <https://v2.tauri.app/security/csp/>
+- <https://v2.tauri.app/develop/sidecar/>

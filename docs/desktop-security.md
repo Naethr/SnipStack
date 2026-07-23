@@ -1,53 +1,40 @@
-# Durcissement Tauri
+# Tauri Hardening
 
-**Date** : 23 juillet 2026  
-**Cible validée** : Ubuntu WSL2 x86_64 avec WSLg
+**Date:** July 23, 2026
 
-## Surface native de production
+**Validated target:** Ubuntu WSL2 x86-64 with WSLg
 
-Le runtime initialise :
+## Production native surface
 
-- Tauri 2 ;
-- le plugin HTTP officiel Tauri sans ses features par défaut : uniquement
-  `rustls-tls`, `http2` et `charset`.
+The runtime initializes Tauri 2 and the official HTTP plugin with default
+features disabled. Enabled features are only `rustls-tls`, `http2`, and
+`charset`. It initializes no Shell, Store, Clipboard, or filesystem plugin.
+WDIO plugins are optional Cargo dependencies compiled only with `webdriver`.
 
-Il n'initialise ni Shell, ni Store, ni Clipboard, ni système de fichiers. Les
-plugins WebDriver sont optionnels dans Cargo et compilés uniquement avec le
-feature `webdriver`.
+HTTP `cookies` support is disabled, so no native persistent cookie jar is
+created. Authentication must revisit this choice explicitly.
 
-Le feature `cookies` du plugin HTTP est désactivé. Aucun cookie jar natif
-persistant n'est créé implicitement ; ce choix devra être redéfini
-explicitement avec le futur modèle d'authentification.
-
-`build.rs` refuse tout profil Cargo `release` qui active le feature
-`webdriver`, ce qui couvre aussi `--all-features`. Le probe de performance
-local doit fournir explicitement
-`SNIPSTACK_ALLOW_RELEASE_WEBDRIVER=1`; cet override est interdit pour un
-artefact de publication.
-
-L'arbre Cargo normal à profondeur 1 contient `tauri-plugin-http` et aucun
-plugin WDIO. Avec `--features webdriver`, les deux plugins WDIO apparaissent,
-ce qui confirme la séparation du profil de test.
+`build.rs` rejects Cargo `release` profiles with `webdriver`, including
+`--all-features`. Only the local performance probe may set
+`SNIPSTACK_ALLOW_RELEASE_WEBDRIVER=1`, and that override is forbidden for
+distributed artifacts.
 
 ## Capability
 
-`src-tauri/capabilities/default.json` est l'unique fichier de capability de
-production. Il s'applique seulement à la fenêtre `main` et accorde :
+`src-tauri/capabilities/default.json` is the sole production capability file.
+It applies only to `main` and grants:
 
-- `http:default` limité à
-  `http://127.0.0.1:3000/api/v1/**`.
+```text
+http:default → http://127.0.0.1:3000/api/v1/**
+```
 
-`core:default` a été retiré du profil de production après audit : aucune API
-core native n'est appelée par l'application. Le profil WebDriver le conserve
-uniquement pour l'instrumentation de test.
+Unused `core:default` was removed from production. The WebDriver profile adds
+test permissions only. Inspection with `strings` found no
+`tauri_plugin_wdio` or `wdio-webdriver` marker in the normal release binary.
 
-Le profil `tauri.webdriver.conf.json` ajoute des permissions WDIO uniquement
-au build de test. Le binaire release normal a été inspecté avec `strings` :
-aucun marqueur `tauri_plugin_wdio` ou `wdio-webdriver` n'y a été trouvé.
+## Content policy
 
-## Politique de contenu
-
-La CSP de production est :
+Production CSP:
 
 ```text
 default-src 'self';
@@ -61,51 +48,39 @@ object-src 'none';
 style-src 'self';
 ```
 
-Les scripts, styles et polices proviennent du bundle. Outfit est embarquée
-localement. Aucun domaine Google Fonts ou CDN n'est autorisé.
+Scripts, styles, and Outfit fonts are bundled locally. No Google Fonts/CDN
+domain, inline script/style, or `unsafe-eval` is allowed.
 
-`style-src 'unsafe-inline'` a été retiré après validation du smoke WSLg. Aucun
-script inline, style inline ou `unsafe-eval` n'est autorisé.
+## Network
 
-## Réseau
+- Browser: native `fetch` with Rails CORS restricted to local Vite origins.
+- Tauri: native HTTP plugin; no need to add `tauri://localhost` to Rails CORS.
+- Plain HTTP is accepted only for the local WSL development API.
+- A future remote API requires HTTPS and an explicit capability scope.
 
-- Le navigateur utilise `fetch` et le CORS Rails limité aux origines Vite
-  locales.
-- Tauri utilise le plugin HTTP natif et ne nécessite pas d'autoriser
-  `tauri://localhost` dans le CORS Rails.
-- L'endpoint HTTP en clair est acceptable uniquement pour l'API locale de
-  développement sous WSL.
-- Toute API distante future devra être en HTTPS et recevoir un scope de
-  capability explicite.
+## Snippet rendering
 
-## Rendu des snippets
+Searches in `frontend/src` and `backend/app` found no
+`dangerouslySetInnerHTML`, `innerHTML` assignment, `eval`, or `new Function`.
+Snippet code is rendered as text in `code`/`pre` and is never executed.
 
-La recherche dans `frontend/src` et `backend/app` n'a trouvé aucun
-`dangerouslySetInnerHTML`, assignement `innerHTML`, `eval` ou
-`new Function`. Le code des snippets est rendu comme texte dans un élément
-`code`/`pre`; il n'est pas exécuté.
+## Executed checks
 
-## Vérifications exécutées
+- `npm audit --omit=dev`: 0 vulnerabilities.
+- `npm run lint`: passed.
+- `cargo fmt --check`: passed.
+- normal and webdriver Clippy with `-D warnings`: passed.
+- Rails tests: 4 tests, initially 41 assertions, no failures.
+- RuboCop: 26 files, no offenses.
+- Tauri smoke with production CSP: passed.
+- Cargo features: no cookies/cookie store.
+- Normal release binary: no WebDriver marker.
+- Release check with `webdriver` and no override: failed as expected.
 
-- `npm audit --omit=dev` : 0 vulnérabilité.
-- `npm run lint` : réussi après exclusion des artefacts Cargo générés.
-- `cargo fmt --check` : réussi.
-- `cargo clippy --all-targets -- -D warnings` : réussi.
-- `cargo clippy --all-targets --features webdriver -- -D warnings` : réussi.
-- `bundle exec rails test` : 4 tests, 41 assertions, 0 échec.
-- `bundle exec rubocop` : 26 fichiers, aucune offense.
-- smoke Tauri avec la CSP de production : réussi.
-- arbre des features Cargo : aucune feature `cookies`/`cookie_store`.
-- binaire release normal : aucun marqueur WebDriver.
-- `cargo check --release --features webdriver` sans override : échec attendu
-  avec le message du garde-fou.
+## Uncertainties
 
-## Incertitudes
-
-- Aucun audit de sécurité externe ni test de pénétration n'a été réalisé.
-- L'authentification, les secrets de session, le stockage offline et la
-  synchronisation ne font pas partie de cette passe.
-- Les artefacts ne sont pas signés.
-- L'override du probe peut volontairement produire un binaire release
-  instrumenté. Le run de performance restaure ensuite immédiatement un binaire
-  normal avec `tauri build --no-bundle`.
+No external security audit or penetration test was performed. Authentication,
+session secrets, offline storage, and synchronization are not implemented.
+Artifacts are unsigned. The performance override can deliberately create an
+instrumented release binary; the procedure immediately restores a normal
+no-bundle build afterward.

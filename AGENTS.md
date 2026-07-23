@@ -1,196 +1,245 @@
-# Instructions des agents — SnipStack
+# Agent Instructions — SnipStack
 
-## Rôle
+## Role
 
-Agir comme agent de développement pragmatique, responsable de faire évoluer SnipStack par passes contrôlées, vérifiables et documentées.
+Act as a pragmatic development agent responsible for evolving SnipStack
+through controlled, verifiable, and documented runs.
 
-L'agent doit :
+The agent must:
 
-- préserver l'architecture et le comportement existants ;
-- exécuter uniquement le run demandé ou le prochain run explicitement autorisé ;
-- baser ses décisions sur le code, les logs, les erreurs et les mesures ;
-- appliquer des modifications minimales et ciblées ;
-- signaler séparément les faits vérifiés, les hypothèses et les inconnues ;
-- mettre à jour le journal après chaque passe.
+- preserve the existing architecture and behavior;
+- execute only the requested run or the next explicitly authorized run;
+- base decisions on code, logs, errors, and measurements;
+- make minimal, targeted changes;
+- report verified facts, hypotheses, and unknowns separately;
+- update the run journal after every run.
 
-L'agent ne doit pas anticiper les runs futurs en les implémentant prématurément.
+Do not implement future runs prematurely.
 
-## Documents de référence obligatoires
+## Mandatory reference documents
 
-Avant toute modification, lire intégralement :
+Before making any change, read these files in full:
 
-1. `brief.md` pour la vision, les limites d'architecture et les risques ;
-2. `runs-workflow.md` pour l'ordre des passes et leurs critères de sortie ;
-3. `runs-journal` pour connaître les passes déjà réalisées, les problèmes rencontrés et l'état réel du projet.
+1. `brief.md` for product direction, architecture boundaries, and risks;
+2. `runs-workflow.md` for run order and exit criteria;
+3. `runs-journal.md` for completed work, encountered problems, and the
+   project's verified state.
 
-En cas de contradiction :
+If they conflict, apply this order:
 
-1. la demande explicite la plus récente de l'utilisateur prévaut ;
-2. `brief.md` définit la direction produit et les frontières d'architecture ;
-3. `runs-workflow.md` définit l'ordre d'exécution ;
-4. `runs-journal` décrit les faits historiques, mais ne redéfinit pas la cible.
+1. the user's latest explicit request;
+2. `brief.md`;
+3. `runs-workflow.md`;
+4. `runs-journal.md`, which records history but does not redefine the target.
 
-Si une décision demandée modifierait substantiellement le brief ou l'ordre des runs, arrêter l'implémentation, exposer l'écart et obtenir une validation avant de poursuivre.
+If a requested decision would substantially change the brief or run order,
+stop, explain the discrepancy, and obtain approval before implementing it.
 
-## État et direction du projet
+## Current project state
 
-Architecture à préserver :
+The architecture to preserve is:
 
-- frontend React/Vite ;
-- backend Rails API ;
-- PostgreSQL comme source de vérité serveur ;
-- client API centralisé ;
-- version web maintenue en parallèle de la version Desktop.
+- React/Vite frontend;
+- Rails API backend;
+- PostgreSQL as the server-side source of truth;
+- centralized API client in `frontend/src/api/snippetsApi.js`;
+- browser version maintained alongside the desktop version;
+- Tauri 2 shell in `frontend/src-tauri/`.
 
-La cible Desktop ajoute Tauri 2 autour du frontend existant. Elle ne remplace ni Rails, ni PostgreSQL, ni le contrat HTTP.
+The desktop shell embeds the existing frontend. It does not replace Rails,
+PostgreSQL, or the HTTP contract. It uses the official Tauri HTTP plugin only
+inside Tauri because direct WebKitGTK `fetch` to the local API failed during
+validation. The browser continues to use native `fetch`.
 
-Vision produit future déjà acquise :
+Runs 0–12 and their corrective audit are complete. The validated desktop
+environment is Linux under WSL2/WSLg. The current bundles are an AppImage and
+a Debian package. The AppImage lifecycle was tested; the Debian package was
+built and inspected but not installed.
 
-- déploiement du frontend comme application web dans un navigateur ;
-- authentification partagée entre web et Desktop ;
-- rattachement des snippets à l'utilisateur authentifié ;
-- fonctionnement hors ligne du Desktop ;
-- synchronisation bidirectionnelle navigateur ↔ Rails ↔ Desktop.
+The agreed future product direction includes:
 
-Ces capacités doivent être prises en compte dans les choix actuels, mais ne doivent être implémentées que dans les runs futurs prévus à cet effet.
+- deployment of the frontend as a browser application;
+- shared browser/desktop authentication;
+- ownership of snippets by the authenticated user;
+- desktop operation without a connection;
+- bidirectional browser ↔ Rails ↔ desktop synchronization.
 
-## Discipline des runs
+These requirements constrain present decisions but belong to future runs
+13–17 and must not be implemented without explicit authorization.
 
-Avant de commencer une passe :
+## Run discipline
 
-1. vérifier la branche et l'état du worktree ;
-2. identifier le dernier run terminé dans `runs-journal` ;
-3. relire le run ciblé dans `runs-workflow.md` ;
-4. confirmer ses préconditions, son périmètre et ses critères de sortie ;
-5. relever les changements préexistants et ne pas les écraser.
+Before a run:
 
-Pendant une passe :
+1. check the branch and worktree;
+2. identify the latest completed run in `runs-journal.md`;
+3. reread the target run in `runs-workflow.md`;
+4. confirm prerequisites, scope, and exit criteria;
+5. record and preserve pre-existing changes.
 
-- rester strictement dans son périmètre ;
-- ne pas regrouper plusieurs runs sans autorisation explicite ;
-- ne pas refactorer du code sans rapport ;
-- ne pas ajouter une dépendance ou une abstraction sans besoin démontré ;
-- appliquer d'abord le correctif ou l'intégration minimale ;
-- conserver la compatibilité web ;
-- documenter immédiatement tout blocage ou changement de décision important.
+During a run:
 
-À la fin d'une passe :
+- remain strictly within scope;
+- do not combine runs without explicit authorization;
+- do not perform unrelated refactors;
+- do not add a dependency or abstraction without demonstrated need;
+- apply the smallest effective change first;
+- preserve browser compatibility;
+- document blockers and material decision changes immediately.
 
-1. exécuter les vérifications prévues ;
-2. comparer le résultat aux critères de sortie ;
-3. inspecter le diff et les fichiers non suivis ;
-4. ajouter une entrée complète dans `runs-journal` ;
-5. déclarer le run `terminé`, `partiel` ou `bloqué` ;
-6. lister honnêtement les vérifications non exécutées.
+At the end of a run:
 
-Un run ne peut être déclaré terminé sur la seule base d'une compilation si son workflow exige aussi des tests ou une validation manuelle.
+1. execute the required checks;
+2. compare results with the exit criteria;
+3. inspect the diff and untracked files;
+4. add a complete entry to `runs-journal.md`;
+5. mark the run `completed`, `partial`, or `blocked`;
+6. list checks that were not run.
 
-## Périmètre Tauri
+A successful compilation alone cannot complete a run that also requires tests
+or manual validation.
 
-L'implémentation et les validations Tauri sont limitées à Linux sous WSL/WSLg.
+## Tauri scope
 
-Ne pas :
+Tauri implementation and validation are limited to Linux under WSL/WSLg.
 
-- configurer ou valider Windows ;
-- ajouter NSIS ou MSI ;
-- annoncer un support Windows natif ;
-- présenter un build WSL comme preuve Windows ;
-- ajouter des permissions Tauri non utilisées ;
-- copier automatiquement les choix de fenêtre, de bundle ou de plugins de `SnippetVault_desktop_app`.
+Do not:
 
-L'ancien dépôt `/home/allen/mes_projets/SnippetVault_desktop_app` est une référence technique, pas une source à reproduire aveuglément. En particulier, sa migration vers Tauri Store ne s'applique pas à SnipStack.
+- configure or claim Windows support;
+- add NSIS or MSI;
+- present a WSL build as Windows evidence;
+- claim macOS or native-Linux validation;
+- add unused Tauri permissions;
+- copy window, bundle, or plugin choices blindly from
+  `/home/allen/mes_projets/SnippetVault_desktop_app`;
+- use `--features webdriver` or `--all-features` for a distributed artifact.
 
-## Frontières backend et données
+The previous SnippetVault repository is only a technical reference. Its
+migration to Tauri Store does not apply to SnipStack.
 
-Pour les premiers runs Tauri :
+## Development and bundles
 
-- continuer à utiliser l'API Rails existante ;
-- conserver `frontend/src/api/snippetsApi.js` comme frontière réseau ;
-- ne pas introduire de stockage métier local ;
-- ne pas remplacer les validations Rails par des validations Desktop ;
-- traiter l'indisponibilité de l'API comme un état explicite, sans revendiquer un vrai mode offline.
+Start Rails separately on `127.0.0.1:3000`. From `frontend/`, the standard
+desktop development command is:
 
-Pour les futurs runs offline/sync :
+```bash
+env -u HTTP_PROXY -u HTTPS_PROXY -u NO_PROXY npm run tauri -- dev
+```
 
-- le stockage local sera une réplique synchronisable, pas une nouvelle source de vérité serveur ;
-- l'accès à cette réplique devra être centralisé derrière une couche de données ;
-- identifiants stables, versions, tombstones, idempotence et conflits devront être conçus avant l'écriture offline ;
-- aucune mutation ne devra être perdue ou écrasée silencieusement.
+When WSLg needs software rendering:
 
-## Authentification et sécurité
+```bash
+env -u HTTP_PROXY -u HTTPS_PROXY -u NO_PROXY \
+  WEBKIT_DISABLE_DMABUF_RENDERER=1 LIBGL_ALWAYS_SOFTWARE=1 \
+  npm run tauri -- dev
+```
 
-Ne pas implémenter le login avant le run dédié.
+Build all configured Linux artifacts with:
 
-Toute future authentification devra :
+```bash
+npm run tauri -- build
+```
 
-- isoler les données par utilisateur côté Rails ;
-- fonctionner pour le navigateur et Tauri ;
-- gérer expiration, renouvellement, révocation et changement de compte ;
-- éviter le stockage en clair des secrets dans le frontend ou un Store générique ;
-- définir le comportement d'une session expirée pendant une période hors ligne.
+Build one bundle type with:
 
-Pour Tauri :
+```bash
+npm run tauri -- build --bundles deb
+npm run tauri -- build --bundles appimage
+```
 
-- maintenir une CSP restrictive ;
-- limiter CORS aux origines réellement observées et nécessaires ;
-- préférer les API Web existantes tant qu'elles fonctionnent ;
-- ajouter un plugin natif seulement après reproduction d'un besoin ;
-- limiter les capabilities à la fenêtre et aux commandes nécessaires ;
-- ne jamais exécuter le contenu d'un snippet ni utiliser `dangerouslySetInnerHTML`.
+Generated artifacts remain under `frontend/src-tauri/target/release/` and are
+ignored by Git. Do not install the Debian package or mutate the host system
+unless the user explicitly authorizes it.
 
-## Frontend et performances
+## Backend and data boundaries
 
-Le rendu web actuel est la référence.
+Until the dedicated offline/synchronization runs:
 
-Avant toute optimisation :
+- keep using the existing Rails API;
+- keep `snippetsApi.js` as the network boundary;
+- do not introduce local business-data storage;
+- do not replace Rails validations with desktop validations;
+- represent API unavailability explicitly without claiming true offline mode.
 
-- établir une baseline ;
-- reproduire le problème dans la WebView WSLg ;
-- mesurer un build représentatif ;
-- modifier un seul facteur à la fois ;
-- comparer mesures et rendu avant/après.
+For future offline/synchronization work:
 
-Surveiller en priorité les éléments recensés dans `brief.md` : police distante, `backdrop-filter`, calque fixe masqué, grandes ombres, animations et rendu des listes.
+- local storage must be a synchronizable replica, not a new server source of
+  truth;
+- centralize replica access behind a data layer;
+- design stable identifiers, versions, tombstones, idempotency, and conflict
+  handling before accepting offline writes;
+- never silently lose or overwrite a mutation.
 
-Ne pas supprimer ou dégrader un effet visuel sur intuition. Préserver les breakpoints, le clavier, le focus visible, le responsive et `prefers-reduced-motion`.
+## Authentication and security
 
-## Vérification et vérité
+Do not implement login before the dedicated run.
 
-Ne jamais inventer :
+Future authentication must:
 
-- le contenu d'un fichier ;
-- le comportement d'une dépendance ;
-- le résultat d'une commande ;
-- le succès d'un test ;
-- la compatibilité d'une plateforme.
+- isolate user data in Rails;
+- work in both browser and Tauri;
+- handle expiry, renewal, revocation, logout, and account switching;
+- avoid plaintext secrets in the frontend or a generic Store file;
+- define behavior when a session expires while offline.
 
-Si une information n'est pas vérifiée, écrire clairement : « Je ne sais pas » ou « Non vérifié ».
+For Tauri:
 
-Pour un diagnostic :
+- maintain a restrictive CSP;
+- restrict CORS to observed browser origins;
+- keep the HTTP capability scoped to the exact API URL;
+- prefer Web APIs when they work;
+- add native plugins only after reproducing a need;
+- restrict capabilities to required windows and commands;
+- never execute snippet contents or use `dangerouslySetInnerHTML`;
+- require HTTPS for any remote API.
 
-1. identifier le symptôme exact ;
-2. localiser la couche concernée ;
-3. classer les hypothèses ;
-4. appliquer le correctif minimal ;
-5. vérifier le résultat.
+## Frontend and performance
 
-Si une vérification prévue est impossible, en expliquer la raison et laisser le run `partiel` ou `bloqué` selon le cas.
+The browser rendering remains the reference. Before optimizing:
 
-## Git et documentation
+- establish a baseline;
+- reproduce the issue in the WSLg WebView;
+- measure a representative build;
+- change one factor at a time;
+- compare measurements and rendering before and after.
 
-- Travailler sur la branche prévue par la demande.
-- Préserver les changements préexistants de l'utilisateur.
-- Ne pas créer de commit, pousser ou ouvrir de pull request sans demande explicite.
-- Ne pas utiliser de commande Git destructive.
-- Mettre à jour `brief.md` si une décision d'architecture validée change.
-- Mettre à jour `runs-workflow.md` si l'ordre ou le périmètre des passes est validé comme différent.
-- Ajouter une entrée à `runs-journal` pour chaque passe exécutée, y compris une passe échouée ou bloquée.
+Preserve breakpoints, keyboard support, visible focus, responsive behavior,
+and `prefers-reduced-motion`. Do not remove visual effects based on intuition.
+The only retained desktop-specific optimization is the measured non-fixed
+decorative grid documented in `docs/desktop-performance.md`.
 
-Le compte rendu final doit indiquer :
+## Verification and truthfulness
 
-- le résultat obtenu ;
-- les fichiers modifiés ;
-- les vérifications exécutées et leur résultat ;
-- les vérifications non exécutées ;
-- les risques ou décisions restantes ;
-- le statut réel du run.
+Never invent file contents, dependency behavior, command output, test success,
+or platform compatibility. If information is not verified, write “I don't
+know” or “Not verified.”
+
+For diagnosis:
+
+1. identify the exact symptom;
+2. locate the affected layer;
+3. rank hypotheses;
+4. apply the minimal fix;
+5. verify the result.
+
+If a required check cannot be run, explain why and leave the run `partial` or
+`blocked` as appropriate.
+
+## Git and documentation
+
+- Work on the branch requested by the user.
+- Preserve the user's pre-existing changes.
+- Do not commit, push, or open a pull request without an explicit request.
+- Do not use destructive Git commands.
+- Update `brief.md` when an approved architecture decision changes.
+- Update `runs-workflow.md` when an approved run order or scope changes.
+- Add a `runs-journal.md` entry for every executed, failed, or blocked run.
+
+The final report must state:
+
+- the result;
+- modified files;
+- checks run and their results;
+- checks not run;
+- remaining risks or decisions;
+- the run's actual status.

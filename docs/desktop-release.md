@@ -1,10 +1,12 @@
-# Validation de la release Desktop
+# Desktop Release Validation
 
-**Date** : 23 juillet 2026  
-**Plateforme** : Ubuntu WSL2 x86_64, WSLg  
-**Portée** : Linux WSLg uniquement
+**Date:** July 23, 2026
 
-## Toolchain observée
+**Platform:** Ubuntu WSL2 x86-64 with WSLg
+
+**Scope:** WSLg Linux only
+
+## Observed toolchain
 
 - Node.js `24.14.1`
 - npm `11.14.0`
@@ -14,11 +16,11 @@
 - PostgreSQL client `16.14`
 - Rust/Cargo `1.94.1`
 - Tauri CLI `2.11.4`
-- crate Tauri `2.11.5`
+- Tauri crate `2.11.5`
 
 ## Builds
 
-Les commandes suivantes ont réussi :
+These commands passed from `frontend/`:
 
 ```bash
 npm run build:desktop
@@ -26,60 +28,58 @@ npm run tauri -- build --no-bundle
 npm run tauri -- build
 ```
 
-Le binaire release normal est un ELF PIE x86-64 dynamiquement lié de 18 MiB.
+The normal release binary is a dynamically linked 18 MiB x86-64 ELF PIE.
 
-## Artefacts
+## Artifacts
 
-| Artefact | Taille | SHA-256 du run |
+| Artifact | Size | Run SHA-256 |
 | --- | ---: | --- |
-| `bundle/deb/SnipStack_0.1.0_amd64.deb` | 5 705 080 octets | `700c4cb73a46b9e4dca7831556d306b36697c43d6acc21785ea32f3d47165f8f` |
-| `bundle/appimage/SnipStack_0.1.0_amd64.AppImage` | 79 948 280 octets | `49ddf511ad7b823534fbe7dc01ad87963adeec1826eeaade182aafdc7c8c901d` |
+| `bundle/deb/SnipStack_0.1.0_amd64.deb` | 5,705,080 bytes | `700c4cb73a46b9e4dca7831556d306b36697c43d6acc21785ea32f3d47165f8f` |
+| `bundle/appimage/SnipStack_0.1.0_amd64.AppImage` | 79,948,280 bytes | `49ddf511ad7b823534fbe7dc01ad87963adeec1826eeaade182aafdc7c8c901d` |
 
-Chemins complets relatifs au frontend :
+Paths relative to `frontend/`:
 
 ```text
 src-tauri/target/release/bundle/deb/SnipStack_0.1.0_amd64.deb
 src-tauri/target/release/bundle/appimage/SnipStack_0.1.0_amd64.AppImage
 ```
 
-Ces sommes correspondent au run local et changent à chaque reconstruction.
-Le répertoire `target/` est ignoré par Git.
+Hashes change on rebuild. `target/` is ignored by Git.
 
-## Validation WSLg
+Build one target only with:
 
-- lancement du binaire release normal : processus stable, puis fermeture
-  volontaire ;
-- AppImage de hash `49ddf511…c901d` piloté par
-  `tauri-driver`/`WebKitWebDriver` : connexion API et CRUD complet réussis ;
-- second lancement indépendant du même AppImage et du même hash : même CRUD
-  réussi, ce qui couvre fermeture et réouverture ;
-- API volontairement arrêtée au lancement : interface conservée, statut
-  `offline`, erreur explicite et bouton `Try again` présents ;
-- clic sur `Try again` sans API : nouvelle tentative exécutée et état offline
-  cohérent ;
-- API relancée ensuite et serveur de développement restauré sur le même port ;
-- aucune donnée de smoke ou de performance temporaire restante.
+```bash
+npm run tauri -- build --bundles deb
+npm run tauri -- build --bundles appimage
+```
 
-Le test offline a été exécuté après arrêt vérifié du port `3000`. Rails a
-ensuite été relancé sur `127.0.0.1:3000`, un `GET /api/v1/snippets` a répondu
-`200`, et le nettoyage final a confirmé `remaining=0`.
+## WSLg validation
 
-WebKitWebDriver a parfois journalisé `element not interactable` avant de
-réessayer une interaction ; les deux suites AppImage se sont néanmoins
-terminées avec succès. Des avertissements EGL/DRI3 et GStreamer ont été vus
-dans le driver externe. Le contournement logiciel utilisé est :
+- The normal release binary launched and stayed stable until deliberate exit.
+- The AppImage with hash `49ddf511…c901d` passed API connection and full CRUD
+  through `tauri-driver`/`WebKitWebDriver`.
+- A second independent launch of the same AppImage passed full CRUD again.
+- With the API deliberately stopped at startup, the UI remained available and
+  showed offline status, explicit error text, and `Try again`.
+- Retrying without the API emitted another request and kept a coherent offline
+  state.
+- Rails was restarted on the same port and cleanup found no smoke/performance
+  data.
+
+The external driver sometimes logged `element not interactable` before retry,
+plus EGL/DRI3 and GStreamer warnings. Both AppImage suites passed. The WSLg
+software-rendering workaround was:
 
 ```bash
 WEBKIT_DISABLE_DMABUF_RENDERER=1 LIBGL_ALWAYS_SOFTWARE=1
 ```
 
-## Dépendances et limites
+## Dependencies and limits
 
-- Rails et PostgreSQL doivent être lancés séparément.
-- Le paquet `webkit2gtk-driver` est requis seulement pour le pilotage externe,
-  pas pour l'usage normal de l'AppImage.
-- L'AppImage et le paquet Debian ne sont pas signés.
-- Le paquet Debian n'a pas été installé dans le système WSL afin de ne pas
-  effectuer de mutation système ; sa construction est validée, son cycle
-  d'installation ne l'est pas.
-- Windows, macOS et Linux natif ne sont pas testés.
+- Rails and PostgreSQL run separately.
+- `webkit2gtk-driver` is required only for external automation, not normal
+  AppImage use.
+- Artifacts are unsigned.
+- The Debian package was built and inspected but not installed, so its install
+  lifecycle is not validated.
+- Windows, macOS, and native Linux are untested.
