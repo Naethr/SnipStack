@@ -1,15 +1,13 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+rails_routes:
+  title: Rails routes
+  description: Show all Rails routes.
+  language: bash
+  code: bin/rails routes
+  tags: rails, routes, debug
 
-one:
-  title: MyString
-  description: MyText
-  language: MyString
-  code: MyText
-  tags: MyText
-
-two:
-  title: MyString
-  description: MyText
-  language: MyString
-  code: MyText
-  tags: MyText
+react_fetch:
+  title: React fetch example
+  description: Basic fetch call to an API endpoint.
+  language: javascript
+  code: fetch('/api/v1/snippets')
+  tags: react, fetch, api
