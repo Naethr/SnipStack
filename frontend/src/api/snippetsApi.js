@@ -1,6 +1,12 @@
+import { isTauri } from "@tauri-apps/api/core";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000/api/v1"
 ).replace(/\/$/, "");
+
+const runtimeFetch = (...args) =>
+  isTauri() ? tauriFetch(...args) : globalThis.fetch(...args);
 
 export class ApiError extends Error {
   constructor(message, { status = 0, errors = [] } = {}) {
@@ -19,7 +25,10 @@ async function request(path, options = {}) {
   let response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+    response = await runtimeFetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
   } catch (error) {
     if (error.name === "AbortError") {
       throw error;
