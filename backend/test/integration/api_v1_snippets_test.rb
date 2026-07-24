@@ -80,6 +80,6 @@ class ApiV1SnippetsTest < ActionDispatch::IntegrationTest
     get "/api/v1/snippets/999999"
 
     assert_response :not_found
-    assert_equal ["Resource not found"], response.parsed_body["errors"]
+    assert_equal [ "Resource not found" ], response.parsed_body["errors"]
   end
 end
