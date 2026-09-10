@@ -275,3 +275,126 @@ Verification was documentation-only: Git identity and origin were inspected,
 badge and profile links were checked structurally, and `git diff --check`
 passed. Application tests and builds were not rerun because application code,
 dependencies, and runtime configuration were unchanged.
+
+## Local setup verification after clone
+
+**Date:** September 9, 2026
+**Branch:** `develop`
+**Status:** completed
+
+User-authorized environment verification only; no future product run started.
+The initial worktree was clean, including ignored files. Read the mandatory
+reference documents and inspected backend/frontend manifests, lockfiles,
+database configuration, scripts, and environment configuration.
+
+Backend work is suspended under the user's version-mismatch instruction:
+`.ruby-version` requires Ruby 3.4.2, but only Ruby 3.4.10 was found in RVM.
+Installed Rails is 8.1.3.1 versus project-locked 8.0.5; installed Bundler is
+2.6.9 versus lockfile `BUNDLED WITH` 4.0.5. No versions were changed and
+`bundle install`, database preparation, Zeitwerk, Rails tests, and Rails
+server startup have not been run.
+
+PostgreSQL socket access failed inside the sandbox. An approved read-only
+check outside the sandbox confirmed PostgreSQL 18.6 online on port 5432,
+connection as `theo`, and absence of `backend_development` and `backend_test`.
+No database or role was modified.
+
+Node 24.20.0 and npm 11.19.0 are installed. No project Node version pin was
+found; installed Node satisfies the inspected Vite/ESLint/jsdom engine ranges.
+The frontend uses JavaScript/JSX, with no TypeScript configuration or
+typecheck script. `npm ci --cache /tmp/snipstack-npm-cache --no-audit --no-fund`
+initially encountered sandbox DNS errors (`EAI_AGAIN`); it was interrupted
+and relaunched with approved network access. Installation succeeded with
+663 packages. npm warned about deprecated transitive `whatwg-encoding` and
+`glob`, and install scripts not covered by `allowScripts` for `edgedriver`,
+`esbuild`, and `geckodriver`. No dependency or npm policy was changed.
+
+Frontend validation:
+
+- `npm run lint`: passed (exit 0).
+- `npm run test`: 2 files, 12 tests passed (exit 0).
+- `npm run build`: passed, Vite 8.1.5 (exit 0).
+- `npm run dev`: sandbox socket binding failed with `EPERM`; an approved
+  launch outside the sandbox succeeded on `127.0.0.1:5173` in 280 ms.
+  HTTP checks of `/` and `/src/main.jsx` both returned 200. The server was
+  then stopped with SIGINT (exit 130).
+- Typecheck: not applicable; no script or TypeScript project configured.
+- `test:web`: not run because the Rails API remains unprepared; additionally,
+  the configured `/usr/bin/google-chrome` executable is absent.
+- Tauri builds/tests and watch/desktop variants: outside this web setup scope.
+- Dependency vulnerability audit: not run; npm installation used `--no-audit`.
+
+Static integration inspection confirmed Vite `127.0.0.1:5173`, Rails port
+3000, API default `http://127.0.0.1:3000/api/v1`, and matching default CORS
+origin. No local environment file or relevant environment override was found.
+`frontend/.env.example` documents the same API URL; no `.env` was created.
+No former-machine home path was found in runtime code/configuration; old
+paths in architecture documents are historical references.
+
+Live frontend-to-Rails requests and CORS responses remain unverified because
+the backend is suspended. The local database configuration uses the current
+OS role over the PostgreSQL socket and requires no custom environment values.
+`BACKEND_DATABASE_PASSWORD` is referenced for production, not local development.
+
+Only this journal was intentionally edited. Installation/build generated
+ignored `frontend/node_modules/` (including tool caches) and `frontend/dist/`.
+npm cache/logs and HTTP response evidence were written under `/tmp/`.
+Final verification: `git diff --check` passed, both application lockfiles were
+unchanged, and the only tracked modification was `runs-journal.md`; no
+untracked non-ignored files were present. No Git mutation command, source or
+configuration change, global update, or destructive database action was used.
+The first pass ended `partial`: frontend checks passed; backend setup needed
+a user decision about the explicitly mismatched Ruby/Bundler environment.
+
+### Backend setup continuation
+
+The user authorized aligning the local RVM environment and completing backend
+validation. RVM 1.29.12 initially contained only Ruby 3.4.10, which remained
+the current global default. The repository requires Ruby 3.4.2 and Bundler
+4.0.5.
+
+RVM had no Ruby 3.4.2 binary for Ubuntu 26.04 and its requirement check asked
+for unavailable legacy package `libncurses5-dev`. APT inspection confirmed
+that package has no candidate and its replacement `libncurses-dev` 6.6 was
+already installed. No system package was changed. Ruby 3.4.2 was compiled and
+installed with RVM autolibs disabled. RVM reported no upstream checksum and
+recorded the downloaded archive checksum in the user's RVM configuration; it
+also noted that Ruby documentation was not built. Ruby 3.4.10 was retained as
+the global default. Because non-interactive shells do not run RVM's directory
+hook, commands explicitly used `rvm use .` in `backend/`.
+
+Installed Bundler 4.0.5 into the Ruby 3.4.2 gemset. Effective project tools:
+Ruby 3.4.2 at `/home/theo/.rvm/rubies/ruby-3.4.2/bin/ruby`, Bundler 4.0.5,
+and Rails 8.0.5. `bundle _4.0.5_ install` used the existing lockfile resolution
+and completed with 14 declared dependencies and 103 installed gems. The only
+gem message was Solid Queue's generic upgrade notice; this is a new database,
+so no upgrade action was taken. `bundle check` passed. `Gemfile`,
+`Gemfile.lock`, and `.ruby-version` remained unchanged.
+
+`config/database.yml` is compatible with the local PostgreSQL socket, default
+port 5432, and OS role `theo`. `bin/rails db:prepare` created
+`backend_development` and `backend_test`. Migration `20260722084747 Create
+snippets` is `up` in both. As part of setup of the new development database,
+Rails loaded the three repository-defined seed snippets. No additional
+application write was made. Rails tests left the expected two fixture records
+in the test database.
+
+Backend validation:
+
+- `bin/rails zeitwerk:check`: passed, `All is good!`. Inside the sandbox,
+  Bundler warned that `/home/theo` was not writable and used a temporary home.
+- `bin/rails test`: 14 runs, 66 assertions, 0 failures, 0 errors, 0 skips.
+- Rails server: Puma 8.0.2 started with Ruby 3.4.2 and Rails 8.0.5 on
+  `http://127.0.0.1:3000`, then stopped gracefully.
+- `GET /api/v1/snippets`: HTTP 200, JSON, returned the three seed snippets.
+- CORS GET and OPTIONS from `http://127.0.0.1:5173`: HTTP 200 with matching
+  `Access-Control-Allow-Origin`; methods were GET, POST, PATCH, DELETE,
+  OPTIONS, and HEAD.
+
+Backend commands generated only ignored runtime files under `backend/log/`
+and `backend/tmp/`, including `backend/tmp/local_secret.txt`. Final Git checks
+confirmed that the only tracked modification is this required journal entry;
+application source, configuration, Ruby manifest, and lockfiles are unchanged.
+The full local browser/Rails development setup is ready. Tauri and external
+browser-driver checks were not rerun because this continuation was limited to
+backend preparation and the minimal HTTP/CORS integration check.
