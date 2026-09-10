@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_22_084747) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_09_133619) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -24,5 +24,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_22_084747) do
     t.datetime "updated_at", null: false
     t.index ["created_at"], name: "index_snippets_on_created_at"
     t.index ["language"], name: "index_snippets_on_language"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.string "email", default: "", null: false
+    t.string "encrypted_password", default: "", null: false
+    t.string "jti", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["jti"], name: "index_users_on_jti", unique: true
   end
 end
