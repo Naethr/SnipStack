@@ -1,4 +1,5 @@
 import { $, browser, expect } from '@wdio/globals';
+import { signInForSmoke } from '../auth.js';
 
 const describeArtifact =
   process.env.DESKTOP_ARTIFACT === '1' ? describe : xdescribe;
@@ -17,6 +18,7 @@ async function activate(element) {
 
 describeArtifact('SnipStack packaged artifact', () => {
   it('loads the API and completes CRUD through the production AppImage', async () => {
+    await signInForSmoke();
     await expect($('footer')).toHaveText(
       expect.stringContaining('API status · connected'),
     );
@@ -36,7 +38,7 @@ describeArtifact('SnipStack packaged artifact', () => {
       { className: 'skip-link', tagName: 'A' },
       { className: 'brand', tagName: 'A' },
       {
-        className: 'button button--primary topbar__action',
+        className: 'button button--secondary',
         tagName: 'BUTTON',
       },
     ]);

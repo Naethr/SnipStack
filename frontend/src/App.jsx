@@ -8,8 +8,12 @@ import {
 import {
   ApiError,
   createSnippet,
+  currentUser,
   deleteSnippet,
   fetchSnippets,
+  loginUser,
+  logoutUser,
+  registerUser,
   updateSnippet,
 } from "./api/snippetsApi";
 import EmptyState from "./components/EmptyState";
@@ -37,8 +41,21 @@ function validateDraft(draft) {
 }
 
 function App() {
+  const [session, setSession] = useState(null);
+  const sessionRef = useRef(null);
+  const sessionVersion = useRef(0);
+  const [authMode, setAuthMode] = useState("login");
+  const [authDraft, setAuthDraft] = useState({
+    email: "",
+    password: "",
+    confirmation: "",
+  });
+  const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [snippets, setSnippets] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [languageFilter, setLanguageFilter] = useState("");
@@ -58,33 +75,126 @@ function App() {
     messageTimer.current = window.setTimeout(() => setMessage(null), 3200);
   }, []);
 
+  const clearSession = useCallback((notice) => {
+    sessionVersion.current += 1;
+    sessionRef.current = null;
+    setSession(null);
+    setSnippets([]);
+    setDraft(EMPTY_DRAFT);
+    setEditingId(null);
+    setDeletePendingId(null);
+    setFieldErrors({});
+    setApiErrors([]);
+    setLoadError("");
+    setIsLoading(false);
+    setAuthDraft((current) => ({ ...current, password: "", confirmation: "" }));
+    setAuthNotice(notice);
+    setMessage(null);
+  }, []);
+
+  const handleSessionError = useCallback((error, version) => {
+    if (error instanceof ApiError && error.status === 401 &&
+        version === sessionVersion.current) {
+      clearSession("Your session has expired. Sign in again to continue.");
+      return true;
+    }
+    return false;
+  }, [clearSession]);
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    let verifying = false;
+    setAuthError("");
+    setAuthNotice("");
+    setIsAuthenticating(true);
+    try {
+      const result = authMode === "register"
+        ? await registerUser(authDraft.email.trim(), authDraft.password, authDraft.confirmation)
+        : await loginUser(authDraft.email.trim(), authDraft.password);
+      verifying = true;
+      const { user } = await currentUser(result.token);
+      sessionVersion.current += 1;
+      sessionRef.current = { token: result.token, user };
+      setIsLoading(true);
+      setSession(sessionRef.current);
+      setAuthDraft({ email: "", password: "", confirmation: "" });
+      setQuery("");
+      setLanguageFilter("");
+    } catch (error) {
+      setAuthError(
+        error instanceof ApiError && error.status === 401 && verifying
+            ? "Your session could not be verified. Sign in again."
+          : error instanceof ApiError && error.status === 401 && authMode === "login"
+            ? "Invalid email or password."
+            : error.message,
+      );
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  async function signOut() {
+    const activeSession = sessionRef.current;
+    if (!activeSession) return;
+    setIsLoggingOut(true);
+    let notice = "You have signed out.";
+    try {
+      await logoutUser(activeSession.token);
+    } catch (error) {
+      notice = error instanceof ApiError && error.status === 401
+        ? "Your session was already invalid. Sign in again to continue."
+        : "Signed out here, but the API could not confirm logout.";
+    } finally {
+      clearSession(notice);
+      setIsLoggingOut(false);
+    }
+  }
+
   async function loadSnippets() {
+    const activeSession = sessionRef.current;
+    if (!activeSession) return;
+    const version = sessionVersion.current;
     setIsLoading(true);
     setLoadError("");
 
     try {
-      const data = await fetchSnippets();
-      setSnippets(Array.isArray(data) ? data : []);
+      const data = await fetchSnippets(activeSession.token);
+      if (version === sessionVersion.current) {
+        setSnippets(Array.isArray(data) ? data : []);
+      }
     } catch (error) {
-      setLoadError(error.message);
+      if (version === sessionVersion.current && !handleSessionError(error, version)) {
+        setLoadError(error.message);
+      }
     } finally {
-      setIsLoading(false);
+      if (version === sessionVersion.current) setIsLoading(false);
     }
   }
 
   useEffect(() => {
+    if (!session) return;
+    const version = sessionVersion.current;
     const controller = new AbortController();
-    fetchSnippets({ signal: controller.signal })
-      .then((data) => setSnippets(Array.isArray(data) ? data : []))
+    fetchSnippets(session.token, { signal: controller.signal })
+      .then((data) => {
+        if (version === sessionVersion.current && !controller.signal.aborted) {
+          setSnippets(Array.isArray(data) ? data : []);
+        }
+      })
       .catch((error) => {
-        if (error.name !== "AbortError") setLoadError(error.message);
+        if (error.name !== "AbortError" && version === sessionVersion.current &&
+            !controller.signal.aborted && !handleSessionError(error, version)) {
+          setLoadError(error.message);
+        }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted && version === sessionVersion.current) {
+          setIsLoading(false);
+        }
       });
 
     return () => controller.abort();
-  }, []);
+  }, [session, handleSessionError]);
 
   useEffect(
     () => () => {
@@ -186,6 +296,9 @@ function App() {
 
   async function saveSnippet(event) {
     event.preventDefault();
+    const activeSession = sessionRef.current;
+    if (!activeSession) return;
+    const version = sessionVersion.current;
     const validationErrors = validateDraft(draft);
 
     if (Object.keys(validationErrors).length > 0) {
@@ -214,7 +327,8 @@ function App() {
 
     try {
       if (editingId) {
-        const updatedSnippet = await updateSnippet(editingId, payload);
+        const updatedSnippet = await updateSnippet(activeSession.token, editingId, payload);
+        if (version !== sessionVersion.current) return;
         setSnippets((current) =>
           current.map((snippet) =>
             snippet.id === editingId ? updatedSnippet : snippet,
@@ -222,7 +336,8 @@ function App() {
         );
         announce("success", `“${updatedSnippet.title}” was updated.`);
       } else {
-        const createdSnippet = await createSnippet(payload);
+        const createdSnippet = await createSnippet(activeSession.token, payload);
+        if (version !== sessionVersion.current) return;
         setSnippets((current) => [createdSnippet, ...current]);
         announce("success", `“${createdSnippet.title}” was added to your stack.`);
       }
@@ -230,6 +345,7 @@ function App() {
       setEditingId(null);
       setDraft(EMPTY_DRAFT);
     } catch (error) {
+      if (version !== sessionVersion.current || handleSessionError(error, version)) return;
       const errors =
         error instanceof ApiError && error.errors.length > 0
           ? error.errors
@@ -241,11 +357,15 @@ function App() {
   }
 
   async function removeSnippet(id) {
+    const activeSession = sessionRef.current;
+    if (!activeSession) return;
+    const version = sessionVersion.current;
     setDeletingId(id);
 
     try {
       const snippet = snippets.find((item) => item.id === id);
-      await deleteSnippet(id);
+      await deleteSnippet(activeSession.token, id);
+      if (version !== sessionVersion.current) return;
       setSnippets((current) => current.filter((item) => item.id !== id));
       setDeletePendingId(null);
 
@@ -256,7 +376,9 @@ function App() {
 
       announce("success", `“${snippet?.title || "Snippet"}” was deleted.`);
     } catch (error) {
-      announce("error", error.message);
+      if (version === sessionVersion.current && !handleSessionError(error, version)) {
+        announce("error", error.message);
+      }
     } finally {
       setDeletingId(null);
     }
@@ -307,11 +429,65 @@ function App() {
             </span>
           </div>
 
-          <button className="button button--primary topbar__action" onClick={startCreate}>
-            <PiPlus aria-hidden="true" /> New snippet
-          </button>
+          {session && (
+            <div className="topbar__session">
+              <span className="session-email">{session.user.email}</span>
+              <button className="button button--secondary" onClick={signOut} disabled={isLoggingOut}>
+                {isLoggingOut ? "Signing out…" : "Sign out"}
+              </button>
+              <button className="button button--primary topbar__action" onClick={startCreate}>
+                <PiPlus aria-hidden="true" /> New snippet
+              </button>
+            </div>
+          )}
         </header>
 
+        {!session ? (
+          <main id="main-content" className="auth-layout">
+            <section className="auth-panel" aria-labelledby="auth-title">
+              <p className="eyebrow">Your code library</p>
+              <h1 id="auth-title">{authMode === "login" ? "Sign in" : "Create an account"}</h1>
+              <p>Sign in to view and manage your snippets.</p>
+              {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}
+              {authError && <p className="form-errors" role="alert">{authError}</p>}
+              <form onSubmit={submitAuth}>
+                <div className="field-group">
+                  <label htmlFor="auth-email">Email</label>
+                  <input id="auth-email" type="email" autoComplete="email" required
+                    value={authDraft.email}
+                    onChange={(event) => setAuthDraft((current) => ({ ...current, email: event.target.value }))} />
+                </div>
+                <div className="field-group">
+                  <label htmlFor="auth-password">Password</label>
+                  <input id="auth-password" type="password"
+                    autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    minLength={6} required value={authDraft.password}
+                    onChange={(event) => setAuthDraft((current) => ({ ...current, password: event.target.value }))} />
+                </div>
+                {authMode === "register" && (
+                  <div className="field-group">
+                    <label htmlFor="auth-confirmation">Confirm password</label>
+                    <input id="auth-confirmation" type="password" autoComplete="new-password"
+                      minLength={6} required value={authDraft.confirmation}
+                      onChange={(event) => setAuthDraft((current) => ({ ...current, confirmation: event.target.value }))} />
+                  </div>
+                )}
+                <button className="button button--primary" type="submit" disabled={isAuthenticating}>
+                  {isAuthenticating ? "Please wait…" : authMode === "login" ? "Sign in" : "Create account"}
+                </button>
+              </form>
+              <button className="button button--text auth-switch" type="button"
+                onClick={() => {
+                  setAuthMode(authMode === "login" ? "register" : "login");
+                  setAuthError("");
+                  setAuthDraft((current) => ({ ...current, password: "", confirmation: "" }));
+                }}>
+                {authMode === "login" ? "Create an account" : "Already have an account? Sign in"}
+              </button>
+              <p className="auth-hint">Sessions last until this app is reloaded or closed.</p>
+            </section>
+          </main>
+        ) : (
         <main id="main-content" className="workspace">
           <aside id="snippet-composer" className="composer-panel">
             <SnippetForm
@@ -407,10 +583,11 @@ function App() {
             )}
           </section>
         </main>
+        )}
 
         <footer className="app-footer">
           <span>SnipStack / developer memory, indexed</span>
-          <span>API status · {loadError ? "offline" : "connected"}</span>
+          <span>API status · {loadError ? "offline" : session ? "connected" : "sign in required"}</span>
         </footer>
       </div>
 

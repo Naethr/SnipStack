@@ -1,4 +1,5 @@
 import { browser, expect } from '@wdio/globals';
+import { signInForSmoke } from '../auth.js';
 
 const describePerformance =
   process.env.DESKTOP_PERF === '1' ? describe : xdescribe;
@@ -131,6 +132,7 @@ async function compareCssProfiles() {
 
 describePerformance('SnipStack Desktop performance probe', () => {
   it('measures a release build with 1,000 temporary snippets', async () => {
+    await signInForSmoke();
     await browser.waitUntil(
       async () =>
         (await browser.execute(

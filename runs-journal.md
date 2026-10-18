@@ -448,3 +448,67 @@ end-to-end against the now-protected routes. No live browser/Tauri check was
 run. The existing non-null `user_id` migration has no backfill strategy for a
 database with pre-existing snippets; no such rows were present in the checked
 development database. No commit, push, or staging change was made.
+
+## Authentication frontend and demo-seed continuation
+
+**Date:** October 18, 2026
+**Branch:** `feature/authentication`
+**Base:** `3e240a0`
+**Status:** partial
+
+The worktree was clean at the start. The user authorized this functional
+frontend/seeds continuation without backend controller, migration, ownership,
+or security changes, and without committing, deploying, or running `db:seed`.
+The full Run 14 criteria for session renewal and cross-target interactive
+validation remain open.
+
+Inspected the Rails routes, auth/snippets controllers, Devise JWT settings,
+model validations, CORS, backend integration tests, frontend client and UI,
+Tauri HTTP capability/CSP, and existing seed data. Backend tests show
+register/login return `{ user }` with the bearer token in the response
+`Authorization` header; `/me` returns `{ user }`; logout returns `204`;
+snippet CRUD requires the bearer token and scopes records to the owner.
+
+The centralized frontend client still uses native browser fetch or the
+scoped Tauri HTTP plugin. It parses the bearer token only from the auth
+response header, attaches it to authenticated requests, and refuses protected
+calls without a token. App state holds the token only in memory, verifies
+`/me` after login/registration, gates the workspace, and clears private
+state on `401`. Voluntary logout calls Rails before clearing local state,
+with separate messages for an already-invalid token and an unconfirmed
+server logout. Existing search/filter/CRUD UI remains in place.
+
+Seeds now require `SNIPSTACK_SEED_EMAIL` for an existing user, fail before
+writing when missing/unknown, and update seven owner-scoped examples in one
+transaction. The original three examples remain. The README documents
+selection, replay, and new-database setup without implicit seed execution.
+No development seed task or database reset was run.
+
+Added frontend client/UI tests and a Rails seed test for missing owners,
+idempotence, and other-user title isolation. Existing WDIO browser/desktop
+scenarios now sign in using explicit test-account environment variables;
+the offline scenario checks the unauthenticated API-unavailable state.
+These WDIO scenarios were adapted but **not executed** here.
+
+Checks:
+
+- Frontend ESLint: passed after correcting one smoke-helper Node import.
+- Vitest: 2 files, 22 tests passed, no failures.
+- Browser Vite build: passed, Vite 8.1.5, JS 295.75 kB and CSS 23.60 kB.
+- Desktop Vite build: passed, Vite 8.1.5, JS 295.75 kB and CSS 23.60 kB.
+- Rails tests: initial sandbox attempt failed before tests because PostgreSQL
+  socket access was denied. The allowed rerun passed: 32 tests, 203
+  assertions, no failures/errors/skips.
+- RuboCop: 39 files inspected, no offenses.
+- `git diff --check`: passed.
+- Tauri `build --no-bundle`: attempted, failed before compilation because
+  `cargo` is not installed in this environment. No Tauri artifact was built.
+
+No Chrome/Chromium, WebKitWebDriver, or tauri-driver executable was found;
+browser and Tauri interactive authentication/CRUD are therefore not verified
+in this continuation. A Vite build is not evidence of an interactive desktop
+path. The backend HTTP contract has no identified incompatibility, but the
+combined path remains unverified. Remaining decisions include session
+renewal, secure desktop persistence if later required, and Run 14 interactive
+validation before the visual redesign. No commit, push, merge, deployment,
+or seed execution occurred.

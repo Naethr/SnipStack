@@ -60,7 +60,7 @@ From `backend/`:
 
 ```bash
 bundle install
-bin/rails db:prepare
+bin/rails db:create db:migrate
 bundle exec rails server -b 127.0.0.1 -p 3000
 ```
 
@@ -73,6 +73,23 @@ bundle exec rails test
 bundle exec rubocop
 ```
 
+### Demo snippets
+
+Create an account through the app first. To load the demo snippets into that
+existing account later, choose its email explicitly:
+
+```bash
+cd backend
+SNIPSTACK_SEED_EMAIL='chosen@example.com' bin/rails db:seed
+```
+
+The seed task fails before writing anything if the email is missing or unknown.
+It never creates a user. Repeating the command for the same owner updates that
+owner's examples without duplicating them; another user's snippets are left
+alone. Check with an owner-scoped count in the Rails console, or sign in as
+the selected user and inspect the library. Do not run `db:prepare` just to
+load these examples into an existing database.
+
 ## Run the browser application
 
 From `frontend/`:
@@ -82,7 +99,9 @@ npm install
 npm run dev
 ```
 
-The browser uses native `fetch` and remains independent from Tauri.
+The browser uses native `fetch` and remains independent from Tauri. Register
+or sign in to access snippets. The JWT stays only in application memory; a
+browser reload or Tauri restart requires signing in again.
 
 Frontend checks:
 
@@ -93,9 +112,13 @@ npm run build
 ```
 
 With Rails and Vite already running, run the Chrome Linux smoke suite from
-another terminal:
+another terminal. Set credentials for an existing test account in the shell.
+The responsive scenario expects at least one snippet in that account; the
+demo seeds above are suitable. Do not commit the credentials:
 
 ```bash
+export SNIPSTACK_TEST_EMAIL='chosen@example.com'
+export SNIPSTACK_TEST_PASSWORD='your-test-account-password'
 npm run test:web
 ```
 
@@ -160,7 +183,8 @@ capability.
 
 ## Desktop tests
 
-Run the WSLg smoke test with test-only Tauri instrumentation:
+Run the WSLg smoke test with test-only Tauri instrumentation and the same
+`SNIPSTACK_TEST_EMAIL` / `SNIPSTACK_TEST_PASSWORD` shell variables:
 
 ```bash
 npm run test:desktop
@@ -289,8 +313,8 @@ available in [`docs/desktop-validation.md`](docs/desktop-validation.md).
 - The API must be available to load or modify snippets.
 - The current “offline” state is a recoverable error state, not offline data
   storage.
-- Login, local storage, bidirectional synchronization, and conflict handling
-  are reserved for future runs 13–17.
+- Session renewal, local storage, bidirectional synchronization, and conflict
+  handling remain future work.
 - Artifacts are neither signed nor published.
 - The Debian package was not installed during validation.
 - Windows, macOS, and native Linux remain untested.

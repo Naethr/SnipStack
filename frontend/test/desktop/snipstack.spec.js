@@ -1,4 +1,5 @@
 import { $, browser, expect } from '@wdio/globals';
+import { signInForSmoke } from '../auth.js';
 
 function cardFor(title) {
   return $(
@@ -8,6 +9,7 @@ function cardFor(title) {
 
 describe('SnipStack Desktop', () => {
   it('loads the Rails-backed interface and preserves window interactions', async () => {
+    await signInForSmoke();
     const heading = await $('h1=Snippet library');
     await heading.waitForDisplayed();
     await expect($('footer')).toHaveText(expect.stringContaining('API status · connected'));
@@ -143,6 +145,7 @@ describe('SnipStack Desktop', () => {
   });
 
   it('creates, edits, copies, filters, and deletes through the real API', async () => {
+    await signInForSmoke();
     const suffix = Date.now();
     const createdTitle = `WDIO desktop ${suffix}`;
     const updatedTitle = `${createdTitle} updated`;
