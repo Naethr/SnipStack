@@ -398,3 +398,53 @@ application source, configuration, Ruby manifest, and lockfiles are unchanged.
 The full local browser/Rails development setup is ready. Tauri and external
 browser-driver checks were not rerun because this continuation was limited to
 backend preparation and the minimal HTTP/CORS integration check.
+
+## Authentication backend continuation — Snippet ownership
+
+**Date:** October 18, 2026
+**Branch:** `feature/authentication`
+**Base:** `6623436`
+**Status:** partial (backend ownership verified; the full browser/desktop authentication run remains open)
+
+The user explicitly requested this backend continuation without a commit,
+push, staging change, frontend work, seed execution, or destructive database
+operation. Preserved the existing uncommitted Devise JSON endpoints, CORS and
+route changes, database-name changes, user/snippet associations, migrations,
+schema, and fixtures.
+
+The first reported fixture failure followed from loading `snippets` before
+`users` while a non-superuser PostgreSQL role could not disable system
+triggers for an immediate foreign key. The already-applied migration makes the
+foreign key initially deferred. A targeted test reproduced the subsequent
+`PG::InsufficientPrivilege` failure: Rails' extra fixture check attempts to
+update `pg_catalog.pg_constraint`. Disabled only that extra check in the test
+environment. Fixture inserts remain transactional and PostgreSQL still checks
+the deferred foreign key at transaction end. A targeted database test inserts
+an invalid `user_id`, forces constraint evaluation, and verifies rejection and
+rollback. The fixtures' user references were retained.
+
+The snippets controller now requires JWT authentication, creates through
+`current_user.snippets`, and scopes index/show/update/delete to that
+association. Tests cover both users' separate lists, missing-token `401`
+responses, cross-user `404` responses for show/update/delete, and ignored
+client-supplied `user_id` on create/update. Existing JSON response shapes and
+successful status codes remain unchanged. Existing model and CRUD tests were
+updated to use authenticated users and retain their validation, CRUD, and CORS
+assertions.
+
+Verification: targeted model/CRUD tests passed (17 runs, 103 assertions),
+then the full Rails suite passed (30 runs, 187 assertions, no failures/errors/
+skips). RuboCop inspected 38 files with no offenses. `git diff --check`,
+`bin/rails routes -g 'api/v1'`, and `bin/rails zeitwerk:check` passed. Read-only
+database checks confirmed all four migrations in both `snipstack_development`
+and `snipstack_test`; the snippets foreign key is deferrable and initially
+deferred in both. Development currently contains zero snippets. Tests wrote
+only to the test database and possibly ignored Rails logs/cache.
+
+`db/seeds.rb` was not run or changed. It still creates snippets without a
+user and needs a product decision about ownership before it can succeed.
+The frontend and desktop still send no JWT, so their CRUD cannot work
+end-to-end against the now-protected routes. No live browser/Tauri check was
+run. The existing non-null `user_id` migration has no backfill strategy for a
+database with pre-existing snippets; no such rows were present in the checked
+development database. No commit, push, or staging change was made.

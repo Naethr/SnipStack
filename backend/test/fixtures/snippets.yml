@@ -1,4 +1,5 @@
 rails_routes:
+  user: one
   title: Rails routes
   description: Show all Rails routes.
   language: bash
@@ -6,6 +7,7 @@ rails_routes:
   tags: rails, routes, debug
 
 react_fetch:
+  user: two
   title: React fetch example
   description: Basic fetch call to an API endpoint.
   language: javascript

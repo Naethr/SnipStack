@@ -278,6 +278,13 @@ Devise.setup do |config|
 
   config.jwt do |jwt|
     jwt.secret = Rails.application.credentials.devise_jwt_secret_key!
+    jwt.dispatch_requests = [
+      [ "POST", %r{\A/api/v1/auth/register\z} ],
+      [ "POST", %r{\A/api/v1/auth/login\z} ]
+    ]
+    jwt.revocation_requests = [
+      [ "DELETE", %r{\A/api/v1/auth/logout\z} ]
+    ]
   end
 
   # ==> Warden configuration

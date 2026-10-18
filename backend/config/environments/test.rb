@@ -42,6 +42,11 @@ Rails.application.configure do
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
 
+  # PostgreSQL checks the deferred snippets foreign key when fixture loading
+  # commits. Rails' extra fixture check writes to pg_catalog and requires
+  # privileges that the application role does not have.
+  config.active_record.verify_foreign_keys_for_fixtures = false
+
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
 
