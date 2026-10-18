@@ -1,6 +1,8 @@
 class Snippet < ApplicationRecord
   before_validation :normalize_fields
 
+  belongs_to :user
+
   validates :title, presence: true, length: { maximum: 100 }
   validates :description, length: { maximum: 500 }, allow_blank: true
   validates :language, presence: true, length: { maximum: 50 }

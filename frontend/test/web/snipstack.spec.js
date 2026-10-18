@@ -1,4 +1,5 @@
 import { $, browser, expect } from '@wdio/globals';
+import { signInForSmoke } from '../auth.js';
 
 function cardFor(title) {
   return $(
@@ -94,6 +95,7 @@ describe('SnipStack web', () => {
 
   it('preserves the responsive browser interactions', async () => {
     await browser.url('/');
+    await signInForSmoke();
     await expect($('footer')).toHaveText(
       expect.stringContaining('API status · connected'),
     );
@@ -208,6 +210,7 @@ describe('SnipStack web', () => {
 
   it('completes CRUD through the browser transport', async () => {
     await browser.url('/');
+    await signInForSmoke();
     await expect($('footer')).toHaveText(
       expect.stringContaining('API status · connected'),
     );

@@ -1,8 +1,9 @@
 class Api::V1::SnippetsController < ApplicationController
+  before_action :authenticate_user!
   before_action :set_snippet, only: %i[show update destroy]
 
   def index
-    snippets = Snippet.newest_first
+    snippets = current_user.snippets.newest_first
     render json: snippets.map { |snippet| serialize_snippet(snippet) }
   end
 
@@ -11,7 +12,7 @@ class Api::V1::SnippetsController < ApplicationController
   end
 
   def create
-    snippet = Snippet.new(snippet_params)
+    snippet = current_user.snippets.new(snippet_params)
 
     if snippet.save
       render json: serialize_snippet(snippet), status: :created
@@ -36,7 +37,7 @@ class Api::V1::SnippetsController < ApplicationController
   private
 
   def set_snippet
-    @snippet = Snippet.find(params[:id])
+    @snippet = current_user.snippets.find(params[:id])
   end
 
   def snippet_params

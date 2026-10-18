@@ -1,11 +1,13 @@
 import { stat, utimes } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { $, browser, expect } from '@wdio/globals';
+import { signInForSmoke } from '../auth.js';
 
 const describeHmr = process.env.DESKTOP_HMR === '1' ? describe : xdescribe;
 
 describeHmr('SnipStack Tauri development', () => {
   it('receives Vite HMR updates inside the WebView', async () => {
+    await signInForSmoke();
     await expect($('h1=Snippet library')).toBeDisplayed();
     await browser.execute(() => {
       window.__snipstackHmrMessages = [];

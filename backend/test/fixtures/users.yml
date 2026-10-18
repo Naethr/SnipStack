@@ -1,0 +1,9 @@
+one:
+  email: one@example.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, "password") %>
+  jti: 5c3fc5c0-d0fb-442f-93b3-80a753680bb9
+
+two:
+  email: two@example.com
+  encrypted_password: <%= Devise::Encryptor.digest(User, "password") %>
+  jti: 85e8907f-aad9-4510-979f-8052782569e5

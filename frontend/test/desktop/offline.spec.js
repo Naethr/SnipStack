@@ -4,21 +4,21 @@ const describeOffline =
   process.env.DESKTOP_OFFLINE === '1' ? describe : xdescribe;
 
 describeOffline('SnipStack packaged artifact without the Rails API', () => {
-  it('keeps the interface usable and exposes a retryable offline state', async () => {
+  it('keeps sign-in available and explains that the API cannot be reached', async () => {
     await expect($('footer')).toHaveText(
-      expect.stringContaining('API status · offline'),
+      expect.stringContaining('API status · sign in required'),
     );
-    await expect($('#snippet-composer')).toBeDisplayed();
-    await expect($('.load-error')).toHaveText(
+    await expect($('#auth-email')).toBeDisplayed();
+    await $('#auth-email').setValue('unavailable@example.com');
+    await $('#auth-password').setValue('password');
+    await $('button=Sign in').click();
+    await expect($('[role="alert"]')).toHaveText(
       expect.stringContaining('Could not reach the SnipStack API'),
     );
-    const retryButton = await $('button=Try again');
-    await expect(retryButton).toBeDisplayed();
-
-    await retryButton.click();
-    await expect($('.load-error')).toHaveText(
+    await $('button=Sign in').click();
+    await expect($('[role="alert"]')).toHaveText(
       expect.stringContaining('Could not reach the SnipStack API'),
     );
-    await expect($('button=Try again')).toBeDisplayed();
+    await expect($('#snippet-composer')).not.toExist();
   });
 });

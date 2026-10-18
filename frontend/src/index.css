@@ -251,6 +251,71 @@ p {
   justify-self: end;
 }
 
+.topbar__session {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.session-email {
+  overflow: hidden;
+  color: var(--neutral-100);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-layout {
+  display: grid;
+  min-height: calc(100dvh - 9rem);
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.auth-panel {
+  width: min(100%, 26rem);
+  padding: 2rem;
+  background: var(--base-800);
+  border: 1px solid var(--base-700);
+  border-radius: 0.8rem;
+}
+
+.auth-panel h1 {
+  margin: 0.5rem 0;
+}
+
+.auth-panel form {
+  margin-top: 1.5rem;
+}
+
+.auth-panel .button--primary {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.auth-panel .form-errors,
+.auth-notice {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.45rem;
+}
+
+.auth-notice {
+  background: var(--neutral-wash);
+}
+
+.auth-switch {
+  margin-top: 1rem;
+}
+
+.auth-hint {
+  margin-top: 1.25rem;
+  color: var(--neutral-500);
+  font-size: 0.76rem;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -1277,6 +1342,10 @@ p {
 }
 
 @media (max-width: 760px) {
+  .session-email {
+    display: none;
+  }
+
   .app-shell {
     border-inline: 0;
   }
