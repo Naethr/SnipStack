@@ -68,6 +68,8 @@ function App() {
   const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState(null);
   const messageTimer = useRef(null);
+  const [copiedId, setCopiedId] = useState(null);
+  const copyTimer = useRef(null);
 
   const announce = useCallback((type, text) => {
     window.clearTimeout(messageTimer.current);
@@ -77,6 +79,8 @@ function App() {
 
   const clearSession = useCallback((notice) => {
     sessionVersion.current += 1;
+    window.clearTimeout(copyTimer.current);
+    setCopiedId(null);
     sessionRef.current = null;
     setSession(null);
     setSnippets([]);
@@ -199,6 +203,7 @@ function App() {
   useEffect(
     () => () => {
       window.clearTimeout(messageTimer.current);
+      window.clearTimeout(copyTimer.current);
     },
     [],
   );
@@ -256,7 +261,12 @@ function App() {
       document.getElementById("snippet-title")?.focus();
       document
         .getElementById("snippet-composer")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        ?.scrollIntoView({
+          behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
+          block: "start",
+        });
     });
   }
 
@@ -390,6 +400,9 @@ function App() {
         throw new Error("Clipboard access is not available in this browser.");
       }
       await navigator.clipboard.writeText(snippet.code);
+      window.clearTimeout(copyTimer.current);
+      setCopiedId(snippet.id);
+      copyTimer.current = window.setTimeout(() => setCopiedId(null), 2200);
       announce("success", `Code from “${snippet.title}” copied.`);
     } catch (error) {
       announce("error", error.message || "Could not copy the code.");
@@ -447,7 +460,11 @@ function App() {
             <section className="auth-panel" aria-labelledby="auth-title">
               <p className="eyebrow">Your code library</p>
               <h1 id="auth-title">{authMode === "login" ? "Sign in" : "Create an account"}</h1>
-              <p>Sign in to view and manage your snippets.</p>
+              <p>
+                {authMode === "login"
+                  ? "Sign in to view and manage your snippets."
+                  : "Create an account to save and find your snippets."}
+              </p>
               {authNotice && <p className="auth-notice" role="status">{authNotice}</p>}
               {authError && <p className="form-errors" role="alert">{authError}</p>}
               <form onSubmit={submitAuth}>
@@ -484,12 +501,12 @@ function App() {
                 }}>
                 {authMode === "login" ? "Create an account" : "Already have an account? Sign in"}
               </button>
-              <p className="auth-hint">Sessions last until this app is reloaded or closed.</p>
+              <p className="auth-hint">Sign in again after your session expires, or after reloading or closing this app.</p>
             </section>
           </main>
         ) : (
         <main id="main-content" className="workspace">
-          <aside id="snippet-composer" className="composer-panel">
+          <aside id="snippet-composer" className={`composer-panel${editingId ? " composer-panel--editing" : ""}`}>
             <SnippetForm
               draft={draft}
               mode={editingId ? "edit" : "create"}
@@ -572,6 +589,7 @@ function App() {
                     isEditing={editingId === snippet.id}
                     isDeletePending={deletePendingId === snippet.id}
                     isDeleting={deletingId === snippet.id}
+                    isCopied={copiedId === snippet.id}
                     onEdit={startEdit}
                     onCopy={copyCode}
                     onRequestDelete={setDeletePendingId}

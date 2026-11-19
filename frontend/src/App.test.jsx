@@ -207,6 +207,22 @@ describe("App state transitions", () => {
     });
   });
 
+  it("avoids smooth composer scrolling when reduced motion is requested", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    const user = userEvent.setup();
+    render(<App />);
+    await signIn(user);
+    Element.prototype.scrollIntoView.mockClear();
+    await user.click(screen.getByRole("button", { name: "New snippet" }));
+    await waitFor(() => {
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+        behavior: "instant",
+        block: "start",
+      });
+    });
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
+  });
+
   it("creates, edits, copies, and deletes a snippet", async () => {
     const user = userEvent.setup();
     const created = { ...snippet, id: 2, title: "Created snippet" };
@@ -243,6 +259,7 @@ describe("App state transitions", () => {
 
     await user.click(within(createdCard).getByRole("button", { name: "Copy" }));
     expect(writeText).toHaveBeenCalledWith(snippet.code);
+    expect(await within(createdCard).findByRole("button", { name: "Copied" })).toBeInTheDocument();
 
     await user.click(within(createdCard).getByRole("button", { name: "Edit" }));
     const title = screen.getByRole("textbox", { name: "Title" });

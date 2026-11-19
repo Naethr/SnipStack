@@ -16,8 +16,10 @@ delivery targets:
 - separate Rails API backed by PostgreSQL;
 - optional Tauri 2 desktop shell embedding the same frontend.
 
-The desktop integration is validated only on Linux under WSL2/WSLg. Windows,
-macOS, and native Linux have not been tested.
+The V1 review targets the local browser application. Historical desktop
+validation covers Linux under WSL2/WSLg before authentication; the current
+authenticated desktop paths still need native validation. Windows, macOS,
+and native Linux have not been tested.
 
 ## Repository layout
 
@@ -33,7 +35,12 @@ running for snippets to load or change.
 
 ## Prerequisites
 
-The project requires Node.js/npm, Ruby/Bundler, PostgreSQL, and Rust/Cargo.
+Browser development requires Node.js/npm, Ruby/Bundler, and PostgreSQL.
+Use the backend's `.ruby-version` and lockfile (Ruby 3.4.2, Bundler 4.0.5).
+In a non-interactive RVM shell, run `source ~/.rvm/scripts/rvm` followed by
+`rvm use .` from `backend/` before running Rails commands.
+
+Rust/Cargo and the native dependencies below are needed only for Tauri.
 On Ubuntu under WSL, install the Linux development dependencies recommended
 for Tauri 2:
 
@@ -92,16 +99,43 @@ load these examples into an existing database.
 
 ## Run the browser application
 
-From `frontend/`:
+From the repository root:
 
 ```bash
-npm install
+cd frontend
 npm run dev
 ```
 
+Run the command from `frontend/`, not directly from the repository root.
+The reported startup issue was caused by using the root directory; no npm or
+Vite correction was needed.
+
+On a fresh checkout, run `npm ci` in `frontend/` once to install the lockfile's
+dependencies. Reinstallation is not a remedy for a socket-permission error.
+
+Open **http://127.0.0.1:5173/**. Vite deliberately uses strict port `5173`,
+matching Rails CORS. Start Rails separately using the command above; without
+the API, the page still loads but sign-in and snippet requests cannot succeed.
+From the repository root, `npm --prefix frontend run dev` is equivalent.
+
+Separately, if startup reports `listen EPERM ... 127.0.0.1:5173`, the process lacks permission
+to bind a local socket. In the agent sandbox this was reproduced even with a
+minimal Node TCP server on an automatically assigned port. Running the same
+`npm run dev` in an authorized local terminal succeeded without code changes.
+Use a terminal or execution context allowed to open local sockets; changing
+Vite's host or reinstalling dependencies does not grant that permission.
+
+For `Port 5173 is already in use`, inspect `ss -ltnp '( sport = :5173 )'`.
+Reuse the intended frontend or stop your own earlier instance in its terminal
+with Ctrl+C. Do not stop an unidentified process or silently move Vite to a
+different port: the default API CORS policy permits this exact browser origin.
+
 The browser uses native `fetch` and remains independent from Tauri. Register
 or sign in to access snippets. The JWT stays only in application memory; a
-browser reload or Tauri restart requires signing in again.
+browser reload or Tauri restart requires signing in again. Tokens also expire
+after one hour with the current server configuration; there is no automatic
+renewal. A `401` clears private frontend state and asks for sign-in. Logout
+revokes all existing tokens for that account, including another browser session.
 
 Frontend checks:
 
@@ -117,10 +151,21 @@ The responsive scenario expects at least one snippet in that account; the
 demo seeds above are suitable. Do not commit the credentials:
 
 ```bash
-export SNIPSTACK_TEST_EMAIL='chosen@example.com'
-export SNIPSTACK_TEST_PASSWORD='your-test-account-password'
+read -r -p 'Test account email: ' SNIPSTACK_TEST_EMAIL
+read -r -s -p 'Test account password: ' SNIPSTACK_TEST_PASSWORD
+printf '\n'
+export SNIPSTACK_TEST_EMAIL SNIPSTACK_TEST_PASSWORD
 npm run test:web
+unset SNIPSTACK_TEST_EMAIL SNIPSTACK_TEST_PASSWORD
 ```
+
+The default Chrome path is `/usr/bin/google-chrome`. If Chrome/Chromium lives
+elsewhere, set `CHROME_BINARY` to its absolute executable path before running
+the same `npm run test:web`. WDIO's `CHROMEDRIVER_PATH` can select an existing
+compatible driver; otherwise WDIO may need network access to obtain one.
+The responsive smoke waits for a real snippet card before measuring layout,
+and includes 390 px and 320 px widths. An empty account does not meet this
+scenario's documented prerequisite.
 
 ## Run Tauri in development
 
@@ -287,12 +332,38 @@ already be running on `127.0.0.1:3000`.
 
 ## Logs and troubleshooting
 
-From the repository root, first verify that Rails is listening and responding:
+From the repository root, first verify that Rails is listening and responding.
+All snippets routes require a bearer JWT; an anonymous `401` proves that Rails
+answered and is not an API-unavailable result:
 
 ```bash
 ss -ltnp '( sport = :3000 )'
-curl --fail --show-error http://127.0.0.1:3000/api/v1/snippets
+curl --silent --show-error --output /dev/null --write-out 'HTTP %{http_code}\n' \
+  http://127.0.0.1:3000/api/v1/snippets
 ```
+
+To inspect the protected list, use a short-lived token from the `Authorization`
+response header of a successful `/api/v1/auth/login` or `/auth/register`
+request for your local account. Enter only the token, without the `Bearer`
+prefix. Keep it out of source files, shell history, logs, and screenshots.
+The following Bash example sends the header through curl's standard input
+instead of putting the token in curl's command-line arguments:
+
+```bash
+read -r -s -p 'Local account JWT: ' SNIPSTACK_TOKEN
+printf '\n'
+printf 'header = "Authorization: Bearer %s"\n' "$SNIPSTACK_TOKEN" | \
+  curl --config - --fail-with-body --show-error \
+    http://127.0.0.1:3000/api/v1/snippets
+unset SNIPSTACK_TOKEN
+```
+
+Expected: `200` and only that account's snippets. `401` means the token is
+missing, expired or revoked; sign in again. A connection error means Rails
+could not be reached. The demo's React fetch example also takes the token as
+a function argument and sends `Authorization: Bearer ...`; it does not log
+in automatically or contain credentials. It is example text, never executed
+by SnipStack.
 
 Follow Rails requests and errors with:
 
@@ -302,11 +373,15 @@ tail -f backend/log/development.log
 
 Tauri, Vite, WDIO, and WebKitWebDriver write their errors to their respective
 terminals. If the UI displays `API status · offline`, check port `3000`, run
-the `curl` command above, and then inspect the Rails log. Empty proxy variables
+the connectivity check above, distinguish HTTP authentication errors from
+connection failures, and then inspect the Rails log. Empty proxy variables
 must be removed with `env -u` for the external WebKitGTK tests.
 
-The latest verified command, toolchain, metric, and artifact report is
-available in [`docs/desktop-validation.md`](docs/desktop-validation.md).
+The current local-browser review is in
+[`docs/v1-readiness-2026-11-19.md`](docs/v1-readiness-2026-11-19.md).
+Historical native artifact evidence is in
+[`docs/desktop-validation.md`](docs/desktop-validation.md); a Vite desktop
+build alone does not validate native Tauri behavior.
 
 ## Current limitations
 
