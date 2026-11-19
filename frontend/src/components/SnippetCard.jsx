@@ -1,4 +1,5 @@
 import {
+  PiCheck,
   PiCopy,
   PiPencilSimple,
   PiTrash,
@@ -23,6 +24,7 @@ function SnippetCard({
   isEditing,
   isDeletePending,
   isDeleting,
+  isCopied,
   onEdit,
   onCopy,
   onRequestDelete,
@@ -54,25 +56,24 @@ function SnippetCard({
             </div>
             <h2>{snippet.title}</h2>
             {snippet.description && <p>{snippet.description}</p>}
-          </div>
-
-          <div className="card-actions" aria-label={`Actions for ${snippet.title}`}>
-            <button type="button" onClick={() => onCopy(snippet)}>
-              <PiCopy aria-hidden="true" />
-              Copy
-            </button>
-            <button type="button" onClick={() => onEdit(snippet)}>
-              <PiPencilSimple aria-hidden="true" />
-              Edit
-            </button>
-            <button
-              className="card-action--danger"
-              type="button"
-              onClick={() => onRequestDelete(snippet.id)}
-            >
-              <PiTrash aria-hidden="true" />
-              Delete
-            </button>
+            <div className="card-actions" aria-label={`Actions for ${snippet.title}`}>
+              <button className={isCopied ? "is-copied" : undefined} type="button" onClick={() => onCopy(snippet)}>
+                {isCopied ? <PiCheck aria-hidden="true" /> : <PiCopy aria-hidden="true" />}
+                {isCopied ? "Copied" : "Copy"}
+              </button>
+              <button type="button" onClick={() => onEdit(snippet)}>
+                <PiPencilSimple aria-hidden="true" />
+                Edit
+              </button>
+              <button
+                className="card-action--danger"
+                type="button"
+                onClick={() => onRequestDelete(snippet.id)}
+              >
+                <PiTrash aria-hidden="true" />
+                Delete
+              </button>
+            </div>
           </div>
         </header>
 

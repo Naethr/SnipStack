@@ -1,3 +1,5 @@
+import process from 'node:process';
+
 export const config = {
   runner: 'local',
   specs: ['./test/web/**/*.spec.js'],
@@ -6,7 +8,7 @@ export const config = {
     {
       browserName: 'chrome',
       'goog:chromeOptions': {
-        binary: '/usr/bin/google-chrome',
+        binary: process.env.CHROME_BINARY || '/usr/bin/google-chrome',
         args: [
           '--headless=new',
           '--no-sandbox',

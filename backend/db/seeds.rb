@@ -21,9 +21,9 @@ snippets = [
   },
   {
     title: "React fetch example",
-    description: "Basic fetch call to an API endpoint.",
+    description: "Fetch your snippets using the in-memory JWT returned by login or registration.",
     language: "javascript",
-    code: "fetch('http://127.0.0.1:3000/api/v1/snippets').then(response => response.json())",
+    code: "async function loadSnippets(token) {\n  const response = await fetch('http://127.0.0.1:3000/api/v1/snippets', {\n    headers: { Authorization: `Bearer ${token}` }\n  });\n  if (!response.ok) throw new Error(`API returned ${response.status}`);\n  return response.json();\n}\n// Pass the JWT from the login/register Authorization header; keep it only in memory.",
     tags: "react, fetch, api"
   },
   {

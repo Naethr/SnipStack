@@ -99,6 +99,8 @@ describe('SnipStack web', () => {
     await expect($('footer')).toHaveText(
       expect.stringContaining('API status · connected'),
     );
+    // The heading and connection label render before the initial list resolves.
+    await $('.snippet-card').waitForDisplayed();
     const baseline = await measureWebBaseline();
     console.log('WEB_BASELINE_RESULT', JSON.stringify(baseline));
     expect(baseline.cards).toBeGreaterThan(0);
@@ -125,6 +127,8 @@ describe('SnipStack web', () => {
       [1120, 800],
       [760, 800],
       [420, 900],
+      [390, 844],
+      [320, 700],
     ]) {
       await browser.setWindowSize(width, height);
       await expect($('#snippet-composer')).toBeDisplayed();
